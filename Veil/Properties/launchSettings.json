@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Veil": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "VEIL_FRONTEND_URL": "http://localhost:5173"
+      }
+    }
+  }
+}
