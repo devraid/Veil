@@ -26,10 +26,11 @@ public sealed class VeilDbContext : DbContext
         {
             entity.ToTable("Chat");
             entity.HasKey(chat => chat.Id);
-            entity.Property(chat => chat.UserText).IsRequired(false);
-            entity.Property(chat => chat.Answer).IsRequired();
+            entity.Property(chat => chat.Role).HasMaxLength(32).IsRequired();
+            entity.Property(chat => chat.Content).IsRequired();
             entity.Property(chat => chat.Image).HasMaxLength(1024).IsRequired(false);
             entity.Property(chat => chat.Timestamp).IsRequired();
+            entity.HasIndex(chat => new { chat.ChatId, chat.Timestamp });
         });
     }
 }
@@ -45,9 +46,11 @@ public sealed class Chat
 {
     public int Id { get; set; }
 
-    public string? UserText { get; set; }
+    public Guid ChatId { get; set; }
 
-    public string Answer { get; set; } = string.Empty;
+    public string Role { get; set; } = string.Empty;
+
+    public string Content { get; set; } = string.Empty;
 
     public string? Image { get; set; }
 

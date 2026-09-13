@@ -1,17 +1,20 @@
 ﻿using System;
 using System.IO;
+using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Web.WebView2.Core;
 using Veil.Data;
+using Veil.Services;
 
 namespace Veil
 {
     public partial class MainWindow : Window
     {
         private VeilDbContext? _dbContext;
+        private readonly OpenAiChatService _openAiChatService = new();
 
         public MainWindow()
         {
@@ -139,7 +142,9 @@ namespace Veil
             var imagePath = await SaveImageAsync(imageDataUrl);
             var chat = new Chat
             {
-                UserText = string.IsNullOrWhiteSpace(text) ? null : text,
+                ChatId = Guid.NewGuid(),
+                Role = "user",
+                Content = text ?? string.Empty,
                 Image = imagePath,
                 Timestamp = DateTime.UtcNow
             };
@@ -147,6 +152,31 @@ namespace Veil
             _dbContext.Chats.Add(chat);
             await _dbContext.SaveChangesAsync();
             await SendToFrontendAsync(new { type = "chat.added", entry = CreateFrontendEntry(chat) });
+
+            try
+            {
+                var conversation = await _dbContext.Chats
+                    .Where(savedChat => savedChat.ChatId == chat.ChatId)
+                    .OrderBy(savedChat => savedChat.Timestamp)
+                    .Select(savedChat => new ChatTurn(savedChat.Role, savedChat.Content, savedChat.Image))
+                    .ToListAsync();
+                var response = await _openAiChatService.GenerateResponseAsync(conversation);
+                var aiChat = new Chat
+                {
+                    ChatId = chat.ChatId,
+                    Role = "ai",
+                    Content = response,
+                    Timestamp = DateTime.UtcNow
+                };
+
+                _dbContext.Chats.Add(aiChat);
+                await _dbContext.SaveChangesAsync();
+                await SendToFrontendAsync(new { type = "chat.added", entry = CreateFrontendEntry(aiChat) });
+            }
+            catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
+            {
+                await SendToFrontendAsync(new { type = "chat.error", message = exception.Message });
+            }
         }
 
         private static object CreateFrontendEntry(Chat chat)
@@ -154,8 +184,8 @@ namespace Veil
             return new
             {
                 chat.Id,
-                chat.UserText,
-                chat.Answer,
+                UserText = chat.Role == "user" ? chat.Content : null,
+                Answer = chat.Role == "ai" ? chat.Content : string.Empty,
                 chat.Timestamp,
                 Image = ReadImageAsDataUrl(chat.Image)
             };

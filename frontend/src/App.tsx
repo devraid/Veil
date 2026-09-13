@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
-import type { ChangeEvent, KeyboardEvent, ReactNode, SubmitEvent } from 'react';
 import { ImagePlus, Send, X } from 'lucide-react';
+import type { ChangeEvent, KeyboardEvent, ReactNode, SubmitEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface ChatEntry {
   id: number;
@@ -12,7 +12,8 @@ interface ChatEntry {
 
 type ChatMessage =
   | { type: 'chat.loaded'; entries: ChatEntry[] }
-  | { type: 'chat.added'; entry: ChatEntry };
+  | { type: 'chat.added'; entry: ChatEntry }
+  | { type: 'chat.error'; message: string };
 
 declare global {
   interface Window {
@@ -43,8 +44,19 @@ export function App(): ReactNode {
       receive: (message: ChatMessage): void => {
         if (message.type === 'chat.loaded') {
           setEntries(message.entries);
-        } else {
+        } else if (message.type === 'chat.added') {
           setEntries((currentEntries) => [...currentEntries, message.entry]);
+        } else {
+          setEntries((currentEntries) => [
+            ...currentEntries,
+            {
+              id: Date.now(),
+              userText: null,
+              answer: `Error: ${message.message}`,
+              timestamp: new Date().toISOString(),
+              image: null,
+            },
+          ]);
         }
       },
     };
@@ -126,6 +138,7 @@ export function App(): ReactNode {
           entries.map((entry) => (
             <article className="chat-entry" key={entry.id}>
               {entry.userText && <p className="chat-text">{entry.userText}</p>}
+              {entry.answer && <p className="chat-text">{entry.answer}</p>}
               {entry.image && (
                 <img className="chat-image" src={entry.image} alt="Attached" />
               )}
