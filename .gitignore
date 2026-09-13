@@ -1,5 +1,6 @@
 # Local Copilot instructions
 .github/copilot-instructions.md
+.github/upgrades/
 .vs/
 *.user
 *.suo

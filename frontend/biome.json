@@ -1,0 +1,192 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.5.13/schema.json",
+	"files": {
+		"includes": ["**", "!!**/dist"]
+	},
+	"formatter": {
+		"enabled": true,
+		"formatWithErrors": false,
+		"indentStyle": "space",
+		"indentWidth": 2,
+		"lineEnding": "lf",
+		"lineWidth": 80,
+		"attributePosition": "auto",
+		"bracketSameLine": false,
+		"bracketSpacing": true,
+		"expand": "auto",
+		"useEditorconfig": true,
+		"includes": [
+			"**",
+			"!**/dist/",
+			"!**/node_modules/",
+			"!**/coverage/",
+			"!**/*.log"
+		]
+	},
+	"linter": {
+		"enabled": true,
+		"rules": { "preset": "none" },
+		"includes": [
+			"**",
+			"!dist/",
+			"!coverage/",
+			"!node_modules/",
+			"!.config/",
+			"!*.js",
+			"!scripts/"
+		]
+	},
+	"javascript": {
+		"formatter": {
+			"jsxQuoteStyle": "double",
+			"quoteProperties": "asNeeded",
+			"trailingCommas": "es5",
+			"semicolons": "always",
+			"arrowParentheses": "always",
+			"bracketSameLine": false,
+			"quoteStyle": "single",
+			"attributePosition": "auto",
+			"bracketSpacing": true
+		}
+	},
+	"html": {
+		"formatter": {
+			"indentScriptAndStyle": false,
+			"selfCloseVoidElements": "always"
+		}
+	},
+	"overrides": [
+		{
+			"includes": ["**/*.ts", "**/*.tsx"],
+			"javascript": { "globals": [] },
+			"linter": {
+				"rules": {
+					"correctness": {
+						"noUnusedVariables": "error"
+					},
+					"complexity": {
+						"noUselessConstructor": "error",
+						"useArrowFunction": "error",
+						"useMaxParams": {
+							"level": "error",
+							"options": { "max": 5 }
+						}
+					},
+					"style": {
+						"noNonNullAssertion": "error",
+						"noParameterAssign": "error",
+						"useAsConstAssertion": "error",
+						"useBlockStatements": "error",
+						"useConsistentArrayType": {
+							"level": "error",
+							"options": { "syntax": "shorthand" }
+						},
+						"useConsistentObjectDefinitions": {
+							"level": "error",
+							"options": { "syntax": "shorthand" }
+						},
+						"useConsistentTypeDefinitions": {
+							"level": "error",
+							"options": { "style": "interface" }
+						},
+						"useConst": "error",
+						"useDefaultParameterLast": "error",
+						"useImportType": "error",
+						"useNamingConvention": {
+							"level": "error",
+							"options": {
+								"strictCase": false,
+								"conventions": [
+									{
+										"selector": { "kind": "interface" },
+										"formats": ["PascalCase"]
+									},
+									{
+										"selector": { "kind": "typeAlias" },
+										"formats": ["PascalCase"]
+									},
+									{
+										"selector": { "kind": "class" },
+										"formats": ["PascalCase"]
+									},
+									{
+										"selector": { "kind": "enum" },
+										"formats": ["PascalCase"]
+									},
+									{
+										"selector": { "kind": "variable" },
+										"formats": ["camelCase", "PascalCase", "CONSTANT_CASE"]
+									},
+									{
+										"selector": { "kind": "function" },
+										"formats": ["camelCase", "PascalCase"]
+									},
+									{
+										"selector": { "kind": "typeProperty" },
+										"formats": ["camelCase", "snake_case"]
+									},
+									{
+										"selector": { "kind": "objectLiteralProperty" },
+										"formats": [
+											"camelCase",
+											"snake_case",
+											"CONSTANT_CASE",
+											"PascalCase"
+										]
+									},
+									{
+										"selector": {
+											"kind": "classProperty",
+											"modifiers": ["static", "readonly"]
+										},
+										"formats": ["CONSTANT_CASE"]
+									}
+								]
+							}
+						},
+						"useTemplate": "error"
+					},
+					"suspicious": {
+						"noConsole": "error",
+						"noDoubleEquals": "error",
+						"noExplicitAny": "error",
+						"noUnusedExpressions": "error",
+						"useAwait": "error",
+						"noVar": "error"
+					},
+					"nursery": {
+						"useExplicitType": "error",
+						"noFloatingPromises": "error",
+						"noMisusedPromises": "error"
+					}
+				}
+			}
+		},
+		{
+			"includes": ["test/**/*.ts"],
+			"javascript": { "globals": [] },
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noUnusedExpressions": "off",
+						"noConsole": "off"
+					}
+				}
+			}
+		},
+		{
+			"includes": ["examples.ts"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noConsole": "off"
+					}
+				}
+			}
+		}
+	],
+	"assist": {
+		"enabled": true,
+		"actions": { "source": { "organizeImports": "on" } }
+	}
+}

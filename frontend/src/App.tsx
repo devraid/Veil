@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import type { ChangeEvent, FormEvent, KeyboardEvent } from 'react'
+import type { ChangeEvent, KeyboardEvent, ReactNode, SubmitEvent } from 'react'
 import { ImagePlus, Send } from 'lucide-react'
 
-type ChatEntry = {
+interface ChatEntry {
   id: number
   userText: string | null
   answer: string
@@ -27,11 +27,11 @@ declare global {
   }
 }
 
-function sendMessage(message: unknown) {
+function sendMessage(message: unknown): void {
   window.chrome?.webview?.postMessage(message)
 }
 
-export function App() {
+export function App(): ReactNode {
   const [entries, setEntries] = useState<ChatEntry[]>([])
   const [text, setText] = useState('')
   const [pendingImage, setPendingImage] = useState<string | null>(null)
@@ -40,7 +40,7 @@ export function App() {
 
   useEffect(() => {
     window.veilChat = {
-      receive: (message) => {
+      receive: (message: ChatMessage): void => {
         if (message.type === 'chat.loaded') {
           setEntries(message.entries)
         } else {
@@ -51,7 +51,7 @@ export function App() {
 
     sendMessage({ type: 'chat.ready' })
 
-    return () => {
+    return (): void => {
       delete window.veilChat
     }
   }, [])
@@ -60,7 +60,7 @@ export function App() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [entries])
 
-  function submit() {
+  function submit(): void {
     const trimmedText = text.trim()
     if (!trimmedText && !pendingImage) {
       return
@@ -78,19 +78,19 @@ export function App() {
     }
   }
 
-  function handleSubmit(event: FormEvent) {
+  function handleSubmit(event: SubmitEvent<HTMLFormElement>): void {
     event.preventDefault()
     submit()
   }
 
-  function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+  function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>): void {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault()
       submit()
     }
   }
 
-  function handleImageSelected(event: ChangeEvent<HTMLInputElement>) {
+  function handleImageSelected(event: ChangeEvent<HTMLInputElement>): void {
     const file = event.target.files?.[0]
     if (!file) {
       return
@@ -143,7 +143,7 @@ export function App() {
           aria-label="Chat message"
           placeholder="Write a message..."
           value={text}
-          onChange={(event) => setText(event.target.value)}
+          onChange={(event: ChangeEvent<HTMLTextAreaElement>): void => setText(event.target.value)}
           onKeyDown={handleKeyDown}
           rows={3}
         />
@@ -151,7 +151,7 @@ export function App() {
           <button
             className="secondary-button"
             type="button"
-            onClick={() => imageInputRef.current?.click()}
+            onClick={(): void => imageInputRef.current?.click()}
           >
             <ImagePlus size={18} aria-hidden="true" />
             Image
