@@ -4,9 +4,10 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
+    "dev": "npm run format && vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
     "check": "biome check .",
+    "format": "biome format --write .",
     "lint": "biome lint .",
     "preview": "vite preview"
   },

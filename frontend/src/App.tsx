@@ -1,108 +1,115 @@
-import { useEffect, useRef, useState } from 'react'
-import type { ChangeEvent, KeyboardEvent, ReactNode, SubmitEvent } from 'react'
-import { ImagePlus, Send } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react';
+import type { ChangeEvent, KeyboardEvent, ReactNode, SubmitEvent } from 'react';
+import { ImagePlus, Send, X } from 'lucide-react';
 
 interface ChatEntry {
-  id: number
-  userText: string | null
-  answer: string
-  timestamp: string
-  image: string | null
+  id: number;
+  userText: string | null;
+  answer: string;
+  timestamp: string;
+  image: string | null;
 }
 
 type ChatMessage =
   | { type: 'chat.loaded'; entries: ChatEntry[] }
-  | { type: 'chat.added'; entry: ChatEntry }
+  | { type: 'chat.added'; entry: ChatEntry };
 
 declare global {
   interface Window {
     chrome?: {
       webview?: {
-        postMessage: (message: unknown) => void
-      }
-    }
+        postMessage: (message: unknown) => void;
+      };
+    };
     veilChat?: {
-      receive: (message: ChatMessage) => void
-    }
+      receive: (message: ChatMessage) => void;
+    };
   }
 }
 
 function sendMessage(message: unknown): void {
-  window.chrome?.webview?.postMessage(message)
+  window.chrome?.webview?.postMessage(message);
 }
 
 export function App(): ReactNode {
-  const [entries, setEntries] = useState<ChatEntry[]>([])
-  const [text, setText] = useState('')
-  const [pendingImage, setPendingImage] = useState<string | null>(null)
-  const imageInputRef = useRef<HTMLInputElement>(null)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [entries, setEntries] = useState<ChatEntry[]>([]);
+  const [text, setText] = useState('');
+  const [pendingImage, setPendingImage] = useState<string | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     window.veilChat = {
       receive: (message: ChatMessage): void => {
         if (message.type === 'chat.loaded') {
-          setEntries(message.entries)
+          setEntries(message.entries);
         } else {
-          setEntries((currentEntries) => [...currentEntries, message.entry])
+          setEntries((currentEntries) => [...currentEntries, message.entry]);
         }
       },
-    }
+    };
 
-    sendMessage({ type: 'chat.ready' })
+    sendMessage({ type: 'chat.ready' });
 
     return (): void => {
-      delete window.veilChat
-    }
-  }, [])
+      delete window.veilChat;
+    };
+  }, []);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [entries])
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [entries]);
 
   function submit(): void {
-    const trimmedText = text.trim()
+    const trimmedText = text.trim();
     if (!trimmedText && !pendingImage) {
-      return
+      return;
     }
 
     sendMessage({
       type: 'chat.submit',
       text: trimmedText || null,
       image: pendingImage,
-    })
-    setText('')
-    setPendingImage(null)
+    });
+    setText('');
+    setPendingImage(null);
     if (imageInputRef.current) {
-      imageInputRef.current.value = ''
+      imageInputRef.current.value = '';
     }
   }
 
   function handleSubmit(event: SubmitEvent<HTMLFormElement>): void {
-    event.preventDefault()
-    submit()
+    event.preventDefault();
+    submit();
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>): void {
     if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault()
-      submit()
+      event.preventDefault();
+      submit();
     }
   }
 
   function handleImageSelected(event: ChangeEvent<HTMLInputElement>): void {
-    const file = event.target.files?.[0]
+    const file = event.target.files?.[0];
     if (!file) {
-      return
+      return;
     }
 
-    const reader = new FileReader()
+    const reader = new FileReader();
     reader.addEventListener('load', () => {
       if (typeof reader.result === 'string') {
-        setPendingImage(reader.result)
+        setPendingImage(reader.result);
       }
-    })
-    reader.readAsDataURL(file)
+    });
+    reader.readAsDataURL(file);
+  }
+
+  function removePendingImage(): void {
+    setPendingImage(null);
+    if (imageInputRef.current) {
+      imageInputRef.current.value = '';
+    }
   }
 
   return (
@@ -143,28 +150,39 @@ export function App(): ReactNode {
           aria-label="Chat message"
           placeholder="Write a message..."
           value={text}
-          onChange={(event: ChangeEvent<HTMLTextAreaElement>): void => setText(event.target.value)}
+          onChange={(event: ChangeEvent<HTMLTextAreaElement>): void =>
+            setText(event.target.value)
+          }
           onKeyDown={handleKeyDown}
           rows={3}
         />
         <div className="composer-actions">
-          <button
-            className="secondary-button"
-            type="button"
-            onClick={(): void => imageInputRef.current?.click()}
-          >
-            <ImagePlus size={18} aria-hidden="true" />
-            Image
-          </button>
+          <div className="image-button-wrapper">
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={(): void => imageInputRef.current?.click()}
+            >
+              <ImagePlus size={18} aria-hidden="true" />
+              Image
+            </button>
+            {pendingImage && (
+              <button
+                className="image-status"
+                type="button"
+                aria-label="Remove selected image"
+                onClick={removePendingImage}
+              >
+                <X size={14} aria-hidden="true" />
+              </button>
+            )}
+          </div>
           <button type="submit" disabled={!text.trim() && !pendingImage}>
             <Send size={18} aria-hidden="true" />
             Send
           </button>
         </div>
-        {pendingImage && (
-          <img className="image-preview" src={pendingImage} alt="Selected preview" />
-        )}
       </form>
     </main>
-  )
+  );
 }
