@@ -3,9 +3,16 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <FrontendRoot>$(MSBuildProjectDirectory)\..\frontend</FrontendRoot>
+    <FrontendDist>$(FrontendRoot)\dist</FrontendDist>
+    <FrontendArchive>$(IntermediateOutputPath)frontend.zip</FrontendArchive>
+    <PublishDir>$(MSBuildProjectDirectory)\..\publish\win-x64\</PublishDir>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,18 +25,29 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="..\frontend\dist\**" Link="frontend\dist\%(RecursiveDir)%(Filename)%(Extension)"
-             CopyToOutputDirectory="PreserveNewest"
-             CopyToPublishDirectory="PreserveNewest" />
-    <None Include="..\.env" Link=".env"
-          CopyToOutputDirectory="PreserveNewest"
-          CopyToPublishDirectory="PreserveNewest" />
-  </ItemGroup>
-
-  <ItemGroup>
+    <EmbeddedResource Include="$(FrontendArchive)" LogicalName="Veil.Frontend.zip" />
     <Compile Update="Data\Migrations\**\*.cs">
       <Visible>true</Visible>
     </Compile>
   </ItemGroup>
+
+  <Target Name="BuildFrontend" BeforeTargets="PrepareForBuild" Condition="'$(DesignTimeBuild)' != 'true'">
+    <Exec Command="npm ci --prefix &quot;$(FrontendRoot)&quot;" WorkingDirectory="$(FrontendRoot)" />
+    <Exec Command="npm run build --prefix &quot;$(FrontendRoot)&quot;" WorkingDirectory="$(FrontendRoot)" />
+    <Error Condition="!Exists('$(FrontendDist)\index.html')" Text="The frontend build did not produce $(FrontendDist)\index.html." />
+    <Exec Command="powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command &quot;Compress-Archive -Path '$(FrontendDist)\*' -DestinationPath '$(FrontendArchive)' -Force&quot;" />
+  </Target>
+
+  <Target Name="CleanFrontendArchiveAfterPublish" AfterTargets="Publish">
+    <Delete Files="$(FrontendArchive)" />
+  </Target>
+
+  <Target Name="CleanLegacyPublishArtifacts" BeforeTargets="Publish">
+    <RemoveDir Directories="$(MSBuildProjectDirectory)\..\artifacts" />
+  </Target>
+
+  <Target Name="CleanPublishFolderAfterPublish" AfterTargets="Publish">
+    <Exec Command="powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command &quot;Get-ChildItem -LiteralPath '$(PublishDir)' -Force | Where-Object { $_.Name -ne 'Veil.exe' } | Remove-Item -Recurse -Force&quot;" />
+  </Target>
 
 </Project>

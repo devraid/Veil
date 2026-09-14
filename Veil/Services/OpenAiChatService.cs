@@ -12,20 +12,26 @@ public sealed class OpenAiChatService
 {
     private const string DefaultModel = "gpt-4o-mini";
     private static readonly HttpClient HttpClient = new();
+    private readonly AppSettingsStore _appSettingsStore = new();
 
     public async Task<string> GenerateResponseAsync(
         IReadOnlyList<ChatTurn> conversation,
         CancellationToken cancellationToken = default)
     {
-        var apiKey = GetEnvironmentValue("OPENAI_API_KEY");
+        var settings = _appSettingsStore.GetStoredSettings();
+        var apiKey = settings?.ApiKey ?? GetEnvironmentValue("OPENAI_API_KEY");
         if (string.IsNullOrWhiteSpace(apiKey))
         {
             throw new InvalidOperationException("OPENAI_API_KEY is not configured.");
         }
 
+        var model = string.IsNullOrWhiteSpace(settings?.Model)
+            ? GetEnvironmentValue("OPENAI_MODEL") ?? DefaultModel
+            : settings.Model;
+
         var request = new
         {
-            model = GetEnvironmentValue("OPENAI_MODEL") ?? DefaultModel,
+            model,
             messages = conversation.Select(CreateOpenAiMessage)
         };
 

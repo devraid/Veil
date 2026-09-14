@@ -7,6 +7,30 @@
   text-rendering: optimizeLegibility;
 }
 
+.settings-panel {
+  flex: 0 0 auto;
+  padding: 1rem;
+  border: 1px solid #3a4b5a;
+  border-radius: 0.75rem;
+  background: #19232d;
+}
+
+.settings-panel h2,
+.settings-panel p {
+  margin-top: 0;
+}
+
+.settings-panel input {
+  width: min(100%, 32rem);
+  margin-right: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid #3a4b5a;
+  border-radius: 0.5rem;
+  color: #e8edf2;
+  background: #11161c;
+  font: inherit;
+}
+
 * {
   box-sizing: border-box;
 }

@@ -13,7 +13,9 @@ interface ChatEntry {
 type ChatMessage =
   | { type: 'chat.loaded'; entries: ChatEntry[] }
   | { type: 'chat.added'; entry: ChatEntry }
-  | { type: 'chat.error'; message: string };
+  | { type: 'chat.error'; message: string }
+  | { type: 'settings.apiKeyStatus'; configured: boolean }
+  | { type: 'settings.apiKeySaved'; success: boolean; message?: string };
 
 declare global {
   interface Window {
@@ -36,13 +38,27 @@ export function App(): ReactNode {
   const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [text, setText] = useState('');
   const [pendingImage, setPendingImage] = useState<string | null>(null);
+  const [apiKey, setApiKey] = useState('');
+  const [model, setModel] = useState('gpt-4o-mini');
+  const [apiKeyConfigured, setApiKeyConfigured] = useState(true);
+  const [apiKeyMessage, setApiKeyMessage] = useState('');
   const imageInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     window.veilChat = {
       receive: (message: ChatMessage): void => {
-        if (message.type === 'chat.loaded') {
+        if (message.type === 'settings.apiKeyStatus') {
+          setApiKeyConfigured(message.configured);
+        } else if (message.type === 'settings.apiKeySaved') {
+          if (message.success) {
+            setApiKey('');
+            setApiKeyConfigured(true);
+            setApiKeyMessage('API key saved securely.');
+          } else {
+            setApiKeyMessage(message.message ?? 'Could not save the API key.');
+          }
+        } else if (message.type === 'chat.loaded') {
           setEntries(message.entries);
         } else if (message.type === 'chat.added') {
           setEntries((currentEntries) => [...currentEntries, message.entry]);
@@ -90,6 +106,19 @@ export function App(): ReactNode {
     }
   }
 
+  function saveApiKey(): void {
+    if (!apiKey.trim()) {
+      setApiKeyMessage('Enter an API key.');
+      return;
+    }
+    setApiKeyMessage('Saving...');
+    sendMessage({
+      type: 'settings.saveApiKey',
+      apiKey: apiKey.trim(),
+      model: model.trim(),
+    });
+  }
+
   function handleSubmit(event: SubmitEvent<HTMLFormElement>): void {
     event.preventDefault();
     submit();
@@ -130,6 +159,34 @@ export function App(): ReactNode {
         <p className="eyebrow">Desktop workspace</p>
         <h1>Veil</h1>
       </header>
+
+      {!apiKeyConfigured && (
+        <section className="settings-panel">
+          <h2>Connect OpenAI</h2>
+          <p>
+            Enter your OpenAI API key once. Veil stores it securely on this
+            Windows account.
+          </p>
+          <input
+            aria-label="OpenAI API key"
+            type="password"
+            placeholder="sk-..."
+            value={apiKey}
+            onChange={(event): void => setApiKey(event.target.value)}
+          />
+          <input
+            aria-label="OpenAI model"
+            type="text"
+            placeholder="gpt-4o-mini"
+            value={model}
+            onChange={(event): void => setModel(event.target.value)}
+          />
+          <button type="button" onClick={saveApiKey}>
+            Save API key
+          </button>
+          {apiKeyMessage && <p>{apiKeyMessage}</p>}
+        </section>
+      )}
 
       <section className="chat-container" aria-live="polite">
         {entries.length === 0 ? (

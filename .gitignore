@@ -11,6 +11,7 @@ frontend/.env*
 # .NET build output
 **/bin/
 **/obj/
+publish/
 
 # Frontend dependencies and build output
 frontend/node_modules/

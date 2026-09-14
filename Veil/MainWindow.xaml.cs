@@ -1,5 +1,7 @@
 ﻿using System;
+using System.IO.Compression;
 using System.IO;
+using System.Reflection;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -14,6 +16,8 @@ namespace Veil
     public partial class MainWindow : Window
     {
         private VeilDbContext? _dbContext;
+        private string? _frontendDirectory;
+        private readonly AppSettingsStore _appSettingsStore = new();
         private readonly OpenAiChatService _openAiChatService = new();
 
         public MainWindow()
@@ -23,7 +27,15 @@ namespace Veil
 
         private async void Window_Loaded(object sender, RoutedEventArgs e)
         {
-            await FrontendView.EnsureCoreWebView2Async();
+            var webViewDataDirectory = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Veil",
+                "WebView2");
+            Directory.CreateDirectory(webViewDataDirectory);
+            var webViewEnvironment = await CoreWebView2Environment.CreateAsync(
+                browserExecutableFolder: null,
+                userDataFolder: webViewDataDirectory);
+            await FrontendView.EnsureCoreWebView2Async(webViewEnvironment);
             _dbContext = VeilDbContextFactory.Create();
             await ApplyMigrationsAsync(_dbContext);
             FrontendView.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
@@ -35,19 +47,30 @@ namespace Veil
                 return;
             }
 
-            var frontendFile = Path.Combine(
-                AppContext.BaseDirectory,
-                "frontend",
-                "dist",
-                "index.html");
-
-            if (File.Exists(frontendFile))
+            try
             {
-                FrontendView.CoreWebView2.Navigate(new Uri(frontendFile).AbsoluteUri);
+                _frontendDirectory = ExtractFrontend();
+                FrontendView.CoreWebView2.SetVirtualHostNameToFolderMapping(
+                    "veil.local",
+                    _frontendDirectory,
+                    CoreWebView2HostResourceAccessKind.Allow);
+                FrontendView.CoreWebView2.Navigate("https://veil.local/index.html");
                 return;
             }
+            catch (Exception exception) when (exception is IOException or InvalidDataException or UnauthorizedAccessException)
+            {
+                FrontendView.NavigateToString($"<h1>Veil</h1><p>The packaged frontend could not be loaded: {System.Net.WebUtility.HtmlEncode(exception.Message)}</p>");
+            }
+        }
 
-            FrontendView.NavigateToString("<h1>Veil</h1><p>The frontend is not available. Start the Vite development server or build the frontend.</p>");
+        private static string ExtractFrontend()
+        {
+            var resource = Assembly.GetExecutingAssembly().GetManifestResourceStream("Veil.Frontend.zip")
+                ?? throw new InvalidOperationException("The packaged frontend resource is missing.");
+            var directory = Path.Combine(Path.GetTempPath(), "Veil", "frontend");
+            Directory.CreateDirectory(directory);
+            ZipFile.ExtractToDirectory(resource, directory, overwriteFiles: true);
+            return directory;
         }
 
         private static async Task ApplyMigrationsAsync(VeilDbContext dbContext)
@@ -94,12 +117,46 @@ namespace Veil
             switch (typeProperty.GetString())
             {
                 case "chat.ready":
+                    await SendApiKeyStatusAsync();
                     await SendExistingChatsAsync();
                     break;
                 case "chat.submit":
                     await SaveChatAsync(root);
                     break;
+                case "settings.saveApiKey":
+                    await SaveApiKeyAsync(root);
+                    break;
             }
+        }
+
+        private async Task SendApiKeyStatusAsync()
+        {
+            var storedSettings = _appSettingsStore.GetStoredSettings();
+            await SendToFrontendAsync(new
+            {
+                type = "settings.apiKeyStatus",
+                configured = !string.IsNullOrWhiteSpace(storedSettings?.ApiKey) ||
+                    !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("OPENAI_API_KEY")),
+                model = storedSettings?.Model
+            });
+        }
+
+        private async Task SaveApiKeyAsync(JsonElement message)
+        {
+            var apiKey = message.TryGetProperty("apiKey", out var keyProperty)
+                ? keyProperty.GetString()?.Trim()
+                : null;
+            var model = message.TryGetProperty("model", out var modelProperty)
+                ? modelProperty.GetString()?.Trim()
+                : null;
+            if (string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(model))
+            {
+                await SendToFrontendAsync(new { type = "settings.apiKeySaved", success = false, message = "Enter an API key and model." });
+                return;
+            }
+
+            _appSettingsStore.Save(apiKey, model);
+            await SendToFrontendAsync(new { type = "settings.apiKeySaved", success = true });
         }
 
         private async Task SendExistingChatsAsync()
