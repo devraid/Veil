@@ -167,15 +167,17 @@ export const App = (): ReactNode => {
   };
 
   return (
-    <main className="app-shell">
-      <header className="app-header">
-        <p className="eyebrow">Windows desktop AI chat application</p>
-        <h1>Veil</h1>
+    <main className="relative flex h-screen flex-col gap-4 p-6">
+      <header className="shrink-0">
+        <p className="mb-2 text-xs font-bold uppercase tracking-[0.12em] text-[#7dd3fc]">
+          Windows desktop AI chat application
+        </p>
+        <h1 className="m-0 text-3xl leading-[0.95]">Veil</h1>
       </header>
 
       {settingsLoaded && settingsConfigured && (
         <button
-          className="settings-button"
+          className="absolute right-6 top-6 flex min-h-11 min-w-11 items-center justify-center rounded-lg border-0 bg-[#7dd3fc] p-0 font-[inherit] font-bold text-[#081018] shadow-none hover:bg-[#7dd3fc]"
           type="button"
           aria-label="Open settings"
           title="Settings"
@@ -186,16 +188,20 @@ export const App = (): ReactNode => {
       )}
 
       {settingsLoaded && (!settingsConfigured || settingsOpen) && (
-        <div className="settings-overlay">
-          <section className="settings-panel">
-            <div className="settings-heading">
-              <h2>{settingsConfigured ? 'Settings' : 'Connect OpenAI'}</h2>
+        <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/[62%] p-6">
+          <section className="flex w-full max-w-[34rem] flex-col gap-6 rounded-2xl border border-[#3a4b5a] bg-[#19232d] px-9 py-8 shadow-[0_1.5rem_4rem_rgb(0_0_0_/_45%)]">
+            <div className="flex flex-col gap-2">
+              <h2 className="m-0 text-2xl">
+                {settingsConfigured ? 'Settings' : 'Connect OpenAI'}
+              </h2>
               {!settingsConfigured && (
-                <p>Enter your OpenAI API key and model to continue.</p>
+                <p className="m-0 leading-6 text-[#aab8c5]">
+                  Enter your OpenAI API key and model to continue.
+                </p>
               )}
             </div>
-            <div className="settings-fields">
-              <label>
+            <div className="flex flex-col gap-4">
+              <label className="flex flex-col gap-2 text-sm font-bold text-[#c8d3dc]">
                 API key
                 <input
                   aria-label="OpenAI API key"
@@ -209,9 +215,10 @@ export const App = (): ReactNode => {
                   onChange={(event: ChangeEvent<HTMLInputElement>): void =>
                     setApiKey(event.target.value)
                   }
+                  className="rounded-lg border border-[#3a4b5a] bg-[#19232d] p-3 text-[#e8edf2] placeholder:text-[#666]"
                 />
               </label>
-              <label>
+              <label className="flex flex-col gap-2 text-sm font-bold text-[#c8d3dc]">
                 Model
                 <input
                   aria-label="OpenAI model"
@@ -221,47 +228,71 @@ export const App = (): ReactNode => {
                   onChange={(event: ChangeEvent<HTMLInputElement>): void =>
                     setModel(event.target.value)
                   }
+                  className="rounded-lg border border-[#3a4b5a] bg-[#19232d] p-3 text-[#e8edf2] placeholder:text-[#666]"
                 />
               </label>
             </div>
-            <div className="settings-actions">
-              <button type="button" onClick={saveApiKey}>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={saveApiKey}
+                className="flex h-10 min-h-[2.5rem] items-center justify-center gap-2 rounded-lg border-0 bg-[#7dd3fc] px-3 font-[inherit] font-bold text-[#081018] shadow-none hover:bg-[#7dd3fc]"
+              >
                 Save
               </button>
               {settingsConfigured && (
                 <button
                   type="button"
-                  className="secondary-button"
+                  className="flex h-10 min-h-[2.5rem] items-center justify-center gap-2 rounded-lg border-0 bg-[#273542] px-3 font-[inherit] font-bold text-[#e8edf2] shadow-none hover:bg-[#273542]"
                   onClick={(): void => setSettingsOpen(false)}
                 >
                   Cancel
                 </button>
               )}
             </div>
-            {settingsMessage && <p>{settingsMessage}</p>}
+            {settingsMessage && (
+              <p className="m-0 leading-6 text-[#aab8c5]">{settingsMessage}</p>
+            )}
           </section>
         </div>
       )}
 
       {settingsConfigured && (
-        <section className="chat-container" aria-live="polite">
+        <section
+          className="min-h-0 flex-1 overflow-y-auto scroll-smooth p-1"
+          aria-live="polite"
+        >
           {entries.length === 0 ? (
-            <p className="empty-state">Enter your first message below.</p>
+            <p className="text-center text-[#7d8a97]">
+              Enter your first message below.
+            </p>
           ) : (
             entries.map((entry) => (
-              <article className="chat-entry" key={entry.id}>
+              <article
+                className="mb-3 rounded-xl border border-[#273542] bg-[#19232d] px-4 py-[0.85rem]"
+                key={entry.id}
+              >
                 {entry.userText && (
-                  <p className="chat-text">{entry.userText}</p>
+                  <p className="mb-2 whitespace-pre-wrap break-words">
+                    {entry.userText}
+                  </p>
                 )}
-                {entry.answer && <p className="chat-text">{entry.answer}</p>}
+                {entry.answer && (
+                  <p className="mb-2 whitespace-pre-wrap break-words">
+                    {entry.answer}
+                  </p>
+                )}
                 {entry.image && (
                   <img
-                    className="chat-image"
+                    className="mb-2 block max-h-80 max-w-[32rem] rounded-lg object-contain"
                     src={entry.image}
                     alt="Attached"
                   />
                 )}
-                <time dateTime={entry.timestamp}>
+                <time
+                  className="text-xs text-[#7d8a97]"
+                  dateTime={entry.timestamp}
+                >
                   {new Date(entry.timestamp).toLocaleString()}
                 </time>
               </article>
@@ -272,10 +303,10 @@ export const App = (): ReactNode => {
       )}
 
       {settingsConfigured && (
-        <form className="composer" onSubmit={handleSubmit}>
+        <form className="flex shrink-0 flex-wrap gap-3" onSubmit={handleSubmit}>
           <input
             ref={imageInputRef}
-            className="image-input"
+            className="hidden"
             type="file"
             accept="image/jpeg,image/png,image/gif,image/webp"
             onChange={handleImageSelected}
@@ -289,11 +320,12 @@ export const App = (): ReactNode => {
             }
             onKeyDown={handleKeyDown}
             rows={3}
+            className="min-h-16 flex-1 resize-y rounded-lg border border-[#3a4b5a] bg-[#19232d] p-3 font-[inherit] text-[#e8edf2] placeholder:text-[#666]"
           />
-          <div className="composer-actions">
-            <div className="image-button-wrapper">
+          <div className="flex items-end gap-2">
+            <div className="relative">
               <button
-                className="secondary-button"
+                className="inline-flex min-h-11 min-w-20 items-center justify-center gap-2 self-end rounded-lg border-0 bg-[#273542] px-3 font-[inherit] font-bold text-[#e8edf2] shadow-none hover:bg-[#273542]"
                 type="button"
                 onClick={(): void => imageInputRef.current?.click()}
               >
@@ -302,7 +334,7 @@ export const App = (): ReactNode => {
               </button>
               {pendingImage && (
                 <button
-                  className="image-status"
+                  className="absolute -right-1.5 -top-1.5 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full border-2 border-[#19232d] bg-[#ef4444] p-0 text-sm leading-none text-white"
                   type="button"
                   aria-label="Remove selected image"
                   onClick={removePendingImage}
@@ -311,7 +343,11 @@ export const App = (): ReactNode => {
                 </button>
               )}
             </div>
-            <button type="submit" disabled={!text.trim() && !pendingImage}>
+            <button
+              type="submit"
+              className="inline-flex min-h-11 min-w-20 items-center justify-center gap-2 self-end rounded-lg border-0 bg-[#7dd3fc] px-3 font-[inherit] font-bold text-[#081018] disabled:cursor-not-allowed disabled:opacity-45"
+              disabled={!text.trim() && !pendingImage}
+            >
               <Send size={18} aria-hidden="true" />
               Send
             </button>
