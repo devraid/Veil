@@ -135,20 +135,36 @@ namespace Veil
             await SendToFrontendAsync(new
             {
                 type = "settings.apiKeyStatus",
-                configured = !string.IsNullOrWhiteSpace(storedSettings?.ApiKey) ||
-                    !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("OPENAI_API_KEY")),
+                configured = IsSettingsConfigured(),
                 model = storedSettings?.Model
             });
         }
 
+        private bool IsSettingsConfigured()
+        {
+            var storedSettings = _appSettingsStore.GetStoredSettings();
+            if (!string.IsNullOrWhiteSpace(storedSettings?.ApiKey) &&
+                !string.IsNullOrWhiteSpace(storedSettings.Model))
+            {
+                return true;
+            }
+
+            return !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("OPENAI_API_KEY")) &&
+                !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("OPENAI_MODEL"));
+        }
+
         private async Task SaveApiKeyAsync(JsonElement message)
         {
-            var apiKey = message.TryGetProperty("apiKey", out var keyProperty)
+            var enteredApiKey = message.TryGetProperty("apiKey", out var keyProperty)
                 ? keyProperty.GetString()?.Trim()
                 : null;
             var model = message.TryGetProperty("model", out var modelProperty)
                 ? modelProperty.GetString()?.Trim()
                 : null;
+            var existingSettings = _appSettingsStore.GetStoredSettings();
+            var apiKey = string.IsNullOrWhiteSpace(enteredApiKey)
+                ? existingSettings?.ApiKey
+                : enteredApiKey;
             if (string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(model))
             {
                 await SendToFrontendAsync(new { type = "settings.apiKeySaved", success = false, message = "Enter an API key and model." });

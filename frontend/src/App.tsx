@@ -1,4 +1,4 @@
-import { ImagePlus, Send, X } from 'lucide-react';
+import { ImagePlus, Send, Settings, X } from 'lucide-react';
 import type { ChangeEvent, KeyboardEvent, ReactNode, SubmitEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -14,7 +14,11 @@ type ChatMessage =
   | { type: 'chat.loaded'; entries: ChatEntry[] }
   | { type: 'chat.added'; entry: ChatEntry }
   | { type: 'chat.error'; message: string }
-  | { type: 'settings.apiKeyStatus'; configured: boolean }
+  | {
+      type: 'settings.apiKeyStatus';
+      configured: boolean;
+      model?: string | null;
+    }
   | { type: 'settings.apiKeySaved'; success: boolean; message?: string };
 
 declare global {
@@ -30,18 +34,19 @@ declare global {
   }
 }
 
-function sendMessage(message: unknown): void {
+const sendMessage = (message: unknown): void => {
   window.chrome?.webview?.postMessage(message);
-}
+};
 
-export function App(): ReactNode {
+export const App = (): ReactNode => {
   const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [text, setText] = useState('');
   const [pendingImage, setPendingImage] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('gpt-4o-mini');
-  const [apiKeyConfigured, setApiKeyConfigured] = useState(true);
-  const [apiKeyMessage, setApiKeyMessage] = useState('');
+  const [settingsConfigured, setSettingsConfigured] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsMessage, setSettingsMessage] = useState('');
   const imageInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -49,14 +54,20 @@ export function App(): ReactNode {
     window.veilChat = {
       receive: (message: ChatMessage): void => {
         if (message.type === 'settings.apiKeyStatus') {
-          setApiKeyConfigured(message.configured);
+          setSettingsConfigured(message.configured);
+          if (message.model) {
+            setModel(message.model);
+          }
         } else if (message.type === 'settings.apiKeySaved') {
           if (message.success) {
             setApiKey('');
-            setApiKeyConfigured(true);
-            setApiKeyMessage('API key saved securely.');
+            setSettingsConfigured(true);
+            setSettingsOpen(false);
+            setSettingsMessage('');
           } else {
-            setApiKeyMessage(message.message ?? 'Could not save the API key.');
+            setSettingsMessage(
+              message.message ?? 'Could not save the settings.'
+            );
           }
         } else if (message.type === 'chat.loaded') {
           setEntries(message.entries);
@@ -88,7 +99,7 @@ export function App(): ReactNode {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [entries]);
 
-  function submit(): void {
+  const submit = (): void => {
     const trimmedText = text.trim();
     if (!trimmedText && !pendingImage) {
       return;
@@ -104,34 +115,34 @@ export function App(): ReactNode {
     if (imageInputRef.current) {
       imageInputRef.current.value = '';
     }
-  }
+  };
 
-  function saveApiKey(): void {
-    if (!apiKey.trim()) {
-      setApiKeyMessage('Enter an API key.');
+  const saveApiKey = (): void => {
+    if ((!settingsConfigured && !apiKey.trim()) || !model.trim()) {
+      setSettingsMessage('Enter an API key and model.');
       return;
     }
-    setApiKeyMessage('Saving...');
+    setSettingsMessage('Saving...');
     sendMessage({
       type: 'settings.saveApiKey',
       apiKey: apiKey.trim(),
       model: model.trim(),
     });
-  }
+  };
 
-  function handleSubmit(event: SubmitEvent<HTMLFormElement>): void {
+  const handleSubmit = (event: SubmitEvent<HTMLFormElement>): void => {
     event.preventDefault();
     submit();
-  }
+  };
 
-  function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>): void {
+  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       submit();
     }
-  }
+  };
 
-  function handleImageSelected(event: ChangeEvent<HTMLInputElement>): void {
+  const handleImageSelected = (event: ChangeEvent<HTMLInputElement>): void => {
     const file = event.target.files?.[0];
     if (!file) {
       return;
@@ -144,115 +155,157 @@ export function App(): ReactNode {
       }
     });
     reader.readAsDataURL(file);
-  }
+  };
 
-  function removePendingImage(): void {
+  const removePendingImage = (): void => {
     setPendingImage(null);
     if (imageInputRef.current) {
       imageInputRef.current.value = '';
     }
-  }
+  };
 
   return (
     <main className="app-shell">
       <header className="app-header">
-        <p className="eyebrow">Desktop workspace</p>
+        <p className="eyebrow">Windows desktop AI chat application</p>
         <h1>Veil</h1>
       </header>
 
-      {!apiKeyConfigured && (
-        <section className="settings-panel">
-          <h2>Connect OpenAI</h2>
-          <p>
-            Enter your OpenAI API key once. Veil stores it securely on this
-            Windows account.
-          </p>
-          <input
-            aria-label="OpenAI API key"
-            type="password"
-            placeholder="sk-..."
-            value={apiKey}
-            onChange={(event): void => setApiKey(event.target.value)}
-          />
-          <input
-            aria-label="OpenAI model"
-            type="text"
-            placeholder="gpt-4o-mini"
-            value={model}
-            onChange={(event): void => setModel(event.target.value)}
-          />
-          <button type="button" onClick={saveApiKey}>
-            Save API key
-          </button>
-          {apiKeyMessage && <p>{apiKeyMessage}</p>}
+      {settingsConfigured && (
+        <button
+          className="settings-button"
+          type="button"
+          aria-label="Open settings"
+          title="Settings"
+          onClick={(): void => setSettingsOpen(true)}
+        >
+          <Settings size={20} aria-hidden="true" />
+        </button>
+      )}
+
+      {(!settingsConfigured || settingsOpen) && (
+        <div className="settings-overlay">
+          <section className="settings-panel">
+            <h2>{settingsConfigured ? 'Settings' : 'Connect OpenAI'}</h2>
+            {!settingsConfigured && (
+              <p>Enter your OpenAI API key and model to continue.</p>
+            )}
+            <input
+              aria-label="OpenAI API key"
+              type="password"
+              placeholder={
+                settingsConfigured
+                  ? 'Leave blank to keep current key'
+                  : 'sk-...'
+              }
+              value={apiKey}
+              onChange={(event: ChangeEvent<HTMLInputElement>): void =>
+                setApiKey(event.target.value)
+              }
+            />
+            <input
+              aria-label="OpenAI model"
+              type="text"
+              placeholder="gpt-4o-mini"
+              value={model}
+              onChange={(event: ChangeEvent<HTMLInputElement>): void =>
+                setModel(event.target.value)
+              }
+            />
+            <div className="settings-actions">
+              <button type="button" onClick={saveApiKey}>
+                Save
+              </button>
+              {settingsConfigured && (
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={(): void => setSettingsOpen(false)}
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+            {settingsMessage && <p>{settingsMessage}</p>}
+          </section>
+        </div>
+      )}
+
+      {settingsConfigured && (
+        <section className="chat-container" aria-live="polite">
+          {entries.length === 0 ? (
+            <p className="empty-state">Enter your first message below.</p>
+          ) : (
+            entries.map((entry) => (
+              <article className="chat-entry" key={entry.id}>
+                {entry.userText && (
+                  <p className="chat-text">{entry.userText}</p>
+                )}
+                {entry.answer && <p className="chat-text">{entry.answer}</p>}
+                {entry.image && (
+                  <img
+                    className="chat-image"
+                    src={entry.image}
+                    alt="Attached"
+                  />
+                )}
+                <time dateTime={entry.timestamp}>
+                  {new Date(entry.timestamp).toLocaleString()}
+                </time>
+              </article>
+            ))
+          )}
+          <div ref={messagesEndRef} />
         </section>
       )}
 
-      <section className="chat-container" aria-live="polite">
-        {entries.length === 0 ? (
-          <p className="empty-state">Enter your first message below.</p>
-        ) : (
-          entries.map((entry) => (
-            <article className="chat-entry" key={entry.id}>
-              {entry.userText && <p className="chat-text">{entry.userText}</p>}
-              {entry.answer && <p className="chat-text">{entry.answer}</p>}
-              {entry.image && (
-                <img className="chat-image" src={entry.image} alt="Attached" />
-              )}
-              <time dateTime={entry.timestamp}>
-                {new Date(entry.timestamp).toLocaleString()}
-              </time>
-            </article>
-          ))
-        )}
-        <div ref={messagesEndRef} />
-      </section>
-
-      <form className="composer" onSubmit={handleSubmit}>
-        <input
-          ref={imageInputRef}
-          className="image-input"
-          type="file"
-          accept="image/jpeg,image/png,image/gif,image/webp"
-          onChange={handleImageSelected}
-        />
-        <textarea
-          aria-label="Chat message"
-          placeholder="Write a message..."
-          value={text}
-          onChange={(event: ChangeEvent<HTMLTextAreaElement>): void =>
-            setText(event.target.value)
-          }
-          onKeyDown={handleKeyDown}
-          rows={3}
-        />
-        <div className="composer-actions">
-          <div className="image-button-wrapper">
-            <button
-              className="secondary-button"
-              type="button"
-              onClick={(): void => imageInputRef.current?.click()}
-            >
-              <ImagePlus size={18} aria-hidden="true" />
-              Image
-            </button>
-            {pendingImage && (
+      {settingsConfigured && (
+        <form className="composer" onSubmit={handleSubmit}>
+          <input
+            ref={imageInputRef}
+            className="image-input"
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            onChange={handleImageSelected}
+          />
+          <textarea
+            aria-label="Chat message"
+            placeholder="Write a message..."
+            value={text}
+            onChange={(event: ChangeEvent<HTMLTextAreaElement>): void =>
+              setText(event.target.value)
+            }
+            onKeyDown={handleKeyDown}
+            rows={3}
+          />
+          <div className="composer-actions">
+            <div className="image-button-wrapper">
               <button
-                className="image-status"
+                className="secondary-button"
                 type="button"
-                aria-label="Remove selected image"
-                onClick={removePendingImage}
+                onClick={(): void => imageInputRef.current?.click()}
               >
-                <X size={14} aria-hidden="true" />
+                <ImagePlus size={18} aria-hidden="true" />
+                Image
               </button>
-            )}
+              {pendingImage && (
+                <button
+                  className="image-status"
+                  type="button"
+                  aria-label="Remove selected image"
+                  onClick={removePendingImage}
+                >
+                  <X size={14} aria-hidden="true" />
+                </button>
+              )}
+            </div>
+            <button type="submit" disabled={!text.trim() && !pendingImage}>
+              <Send size={18} aria-hidden="true" />
+              Send
+            </button>
           </div>
-          <button type="submit" disabled={!text.trim() && !pendingImage}>
-            <Send size={18} aria-hidden="true" />
-            Send
-          </button>
-        </div>
-      </form>
+        </form>
+      )}
     </main>
   );
-}
+};
