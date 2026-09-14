@@ -9,6 +9,7 @@ It uses:
 - WPF and WebView2
 - SQLite and Entity Framework Core
 - EF Core migrations for database versioning
+- Tailwind CSS and Biome
 
 ## Developer prerequisites
 
