@@ -44,6 +44,7 @@ export const App = (): ReactNode => {
   const [pendingImage, setPendingImage] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('gpt-4o-mini');
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [settingsConfigured, setSettingsConfigured] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsMessage, setSettingsMessage] = useState('');
@@ -54,6 +55,7 @@ export const App = (): ReactNode => {
     window.veilChat = {
       receive: (message: ChatMessage): void => {
         if (message.type === 'settings.apiKeyStatus') {
+          setSettingsLoaded(true);
           setSettingsConfigured(message.configured);
           if (message.model) {
             setModel(message.model);
@@ -171,7 +173,7 @@ export const App = (): ReactNode => {
         <h1>Veil</h1>
       </header>
 
-      {settingsConfigured && (
+      {settingsLoaded && settingsConfigured && (
         <button
           className="settings-button"
           type="button"
@@ -183,7 +185,7 @@ export const App = (): ReactNode => {
         </button>
       )}
 
-      {(!settingsConfigured || settingsOpen) && (
+      {settingsLoaded && (!settingsConfigured || settingsOpen) && (
         <div className="settings-overlay">
           <section className="settings-panel">
             <h2>{settingsConfigured ? 'Settings' : 'Connect OpenAI'}</h2>

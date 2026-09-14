@@ -32,7 +32,8 @@
   </ItemGroup>
 
   <Target Name="BuildFrontend" BeforeTargets="PrepareForBuild" Condition="'$(DesignTimeBuild)' != 'true'">
-    <Exec Command="npm ci --prefix &quot;$(FrontendRoot)&quot;" WorkingDirectory="$(FrontendRoot)" />
+    <Exec Command="npm ci --prefix &quot;$(FrontendRoot)&quot;" WorkingDirectory="$(FrontendRoot)"
+          Condition="!Exists('$(FrontendRoot)\node_modules')" />
     <Exec Command="npm run build --prefix &quot;$(FrontendRoot)&quot;" WorkingDirectory="$(FrontendRoot)" />
     <Error Condition="!Exists('$(FrontendDist)\index.html')" Text="The frontend build did not produce $(FrontendDist)\index.html." />
     <Exec Command="powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command &quot;Compress-Archive -Path '$(FrontendDist)\*' -DestinationPath '$(FrontendArchive)' -Force&quot;" />

@@ -19,7 +19,7 @@ Install the following on a Windows development machine:
 - Visual Studio with WPF support
 - WebView2 Runtime on Windows versions that do not include it
 
-The repository `.env` file is for local development only. It may contain `OPENAI_API_KEY` and `OPENAI_MODEL`.
+For local development, create `frontend\.env` if needed and add `OPENAI_API_KEY` and `OPENAI_MODEL`.
 
 ## Run the application locally
 
@@ -54,9 +54,5 @@ The final executable is:
 ```text
 publish\win-x64\Veil.exe
 ```
-
-## First-run application setup
-
-When the published executable starts for the first time, enter the OpenAI API key and model in Veil. The application stores both values encrypted for the current Windows user and reuses them on later launches.
 
 
