@@ -17,6 +17,7 @@ namespace Veil
     {
         private VeilDbContext? _dbContext;
         private string? _frontendDirectory;
+        private Task? _databaseInitializationTask;
         private readonly AppSettingsStore _appSettingsStore = new();
         private readonly OpenAiChatService _openAiChatService = new();
 
@@ -27,40 +28,54 @@ namespace Veil
 
         private async void Window_Loaded(object sender, RoutedEventArgs e)
         {
-            var webViewDataDirectory = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Veil",
-                "WebView2");
-            Directory.CreateDirectory(webViewDataDirectory);
-            var webViewEnvironment = await CoreWebView2Environment.CreateAsync(
-                browserExecutableFolder: null,
-                userDataFolder: webViewDataDirectory);
-            await FrontendView.EnsureCoreWebView2Async(webViewEnvironment);
-            _dbContext = VeilDbContextFactory.Create();
-            await ApplyMigrationsAsync(_dbContext);
-            FrontendView.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
-
-            var frontendUrl = Environment.GetEnvironmentVariable("VEIL_FRONTEND_URL");
-            if (!string.IsNullOrWhiteSpace(frontendUrl))
-            {
-                FrontendView.CoreWebView2.Navigate(frontendUrl);
-                return;
-            }
-
             try
             {
-                _frontendDirectory = ExtractFrontend();
-                FrontendView.CoreWebView2.SetVirtualHostNameToFolderMapping(
-                    "veil.local",
-                    _frontendDirectory,
-                    CoreWebView2HostResourceAccessKind.Allow);
-                FrontendView.CoreWebView2.Navigate("https://veil.local/index.html");
-                return;
+                var frontendUrl = Environment.GetEnvironmentVariable("VEIL_FRONTEND_URL");
+                if (string.IsNullOrWhiteSpace(frontendUrl))
+                {
+                    var webViewDataDirectory = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                        "Veil",
+                        "WebView2");
+                    Directory.CreateDirectory(webViewDataDirectory);
+                    var webViewEnvironment = await CoreWebView2Environment.CreateAsync(
+                        browserExecutableFolder: null,
+                        userDataFolder: webViewDataDirectory);
+                    await FrontendView.EnsureCoreWebView2Async(webViewEnvironment);
+                }
+                else
+                {
+                    await FrontendView.EnsureCoreWebView2Async();
+                }
+
+                FrontendView.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
+
+                if (!string.IsNullOrWhiteSpace(frontendUrl))
+                {
+                    FrontendView.CoreWebView2.Navigate(frontendUrl);
+                }
+                else
+                {
+                    _frontendDirectory = ExtractFrontend();
+                    FrontendView.CoreWebView2.SetVirtualHostNameToFolderMapping(
+                        "veil.local",
+                        _frontendDirectory,
+                        CoreWebView2HostResourceAccessKind.Allow);
+                    FrontendView.CoreWebView2.Navigate("https://veil.local/index.html");
+                }
+
+                _databaseInitializationTask = InitializeDatabaseAsync();
             }
-            catch (Exception exception) when (exception is IOException or InvalidDataException or UnauthorizedAccessException)
+            catch (Exception exception)
             {
-                FrontendView.NavigateToString($"<h1>Veil</h1><p>The packaged frontend could not be loaded: {System.Net.WebUtility.HtmlEncode(exception.Message)}</p>");
+                FrontendView.NavigateToString($"<h1>Veil could not start</h1><p>{System.Net.WebUtility.HtmlEncode(exception.Message)}</p>");
             }
+        }
+
+        private async Task InitializeDatabaseAsync()
+        {
+            _dbContext = VeilDbContextFactory.Create();
+            await ApplyMigrationsAsync(_dbContext);
         }
 
         private static string ExtractFrontend()
@@ -117,10 +132,18 @@ namespace Veil
             switch (typeProperty.GetString())
             {
                 case "chat.ready":
+                    if (_databaseInitializationTask is not null)
+                    {
+                        await _databaseInitializationTask;
+                    }
                     await SendApiKeyStatusAsync();
                     await SendExistingChatsAsync();
                     break;
                 case "chat.submit":
+                    if (_databaseInitializationTask is not null)
+                    {
+                        await _databaseInitializationTask;
+                    }
                     await SaveChatAsync(root);
                     break;
                 case "settings.saveApiKey":

@@ -188,32 +188,42 @@ export const App = (): ReactNode => {
       {settingsLoaded && (!settingsConfigured || settingsOpen) && (
         <div className="settings-overlay">
           <section className="settings-panel">
-            <h2>{settingsConfigured ? 'Settings' : 'Connect OpenAI'}</h2>
-            {!settingsConfigured && (
-              <p>Enter your OpenAI API key and model to continue.</p>
-            )}
-            <input
-              aria-label="OpenAI API key"
-              type="password"
-              placeholder={
-                settingsConfigured
-                  ? 'Leave blank to keep current key'
-                  : 'sk-...'
-              }
-              value={apiKey}
-              onChange={(event: ChangeEvent<HTMLInputElement>): void =>
-                setApiKey(event.target.value)
-              }
-            />
-            <input
-              aria-label="OpenAI model"
-              type="text"
-              placeholder="gpt-4o-mini"
-              value={model}
-              onChange={(event: ChangeEvent<HTMLInputElement>): void =>
-                setModel(event.target.value)
-              }
-            />
+            <div className="settings-heading">
+              <h2>{settingsConfigured ? 'Settings' : 'Connect OpenAI'}</h2>
+              {!settingsConfigured && (
+                <p>Enter your OpenAI API key and model to continue.</p>
+              )}
+            </div>
+            <div className="settings-fields">
+              <label>
+                API key
+                <input
+                  aria-label="OpenAI API key"
+                  type="password"
+                  placeholder={
+                    settingsConfigured
+                      ? 'Leave blank to keep current key'
+                      : 'sk-...'
+                  }
+                  value={apiKey}
+                  onChange={(event: ChangeEvent<HTMLInputElement>): void =>
+                    setApiKey(event.target.value)
+                  }
+                />
+              </label>
+              <label>
+                Model
+                <input
+                  aria-label="OpenAI model"
+                  type="text"
+                  placeholder="gpt-4o-mini"
+                  value={model}
+                  onChange={(event: ChangeEvent<HTMLInputElement>): void =>
+                    setModel(event.target.value)
+                  }
+                />
+              </label>
+            </div>
             <div className="settings-actions">
               <button type="button" onClick={saveApiKey}>
                 Save
