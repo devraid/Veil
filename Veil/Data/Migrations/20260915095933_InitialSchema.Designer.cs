@@ -11,8 +11,8 @@ using Veil.Data;
 namespace Veil.Data.Migrations
 {
     [DbContext(typeof(VeilDbContext))]
-    [Migration("20260912075409_AddChatImage")]
-    partial class AddChatImage
+    [Migration("20260915095933_InitialSchema")]
+    partial class InitialSchema
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -37,11 +37,32 @@ namespace Veil.Data.Migrations
 
             modelBuilder.Entity("Veil.Data.Chat", b =>
                 {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Chat", (string)null);
+                });
+
+            modelBuilder.Entity("Veil.Data.ChatMessage", b =>
+                {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("Answer")
+                    b.Property<Guid>("ChatId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Content")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
@@ -49,16 +70,35 @@ namespace Veil.Data.Migrations
                         .HasMaxLength(1024)
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTime>("Timestamp")
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(32)
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("UserText")
-                        .IsRequired()
+                    b.Property<DateTime>("Timestamp")
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
-                    b.ToTable("Chat", (string)null);
+                    b.HasIndex("ChatId", "Timestamp");
+
+                    b.ToTable("ChatMessage", (string)null);
+                });
+
+            modelBuilder.Entity("Veil.Data.ChatMessage", b =>
+                {
+                    b.HasOne("Veil.Data.Chat", "Chat")
+                        .WithMany("Messages")
+                        .HasForeignKey("ChatId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Chat");
+                });
+
+            modelBuilder.Entity("Veil.Data.Chat", b =>
+                {
+                    b.Navigation("Messages");
                 });
 #pragma warning restore 612, 618
         }

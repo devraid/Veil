@@ -1,6 +1,17 @@
-import { ImagePlus, Send, Settings, X } from 'lucide-react';
+import {
+  Check,
+  ImagePlus,
+  Menu,
+  Pencil,
+  Send,
+  Settings,
+  Trash2,
+  X,
+} from 'lucide-react';
 import type { ChangeEvent, KeyboardEvent, ReactNode, SubmitEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
+import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface ChatEntry {
   id: number;
@@ -10,8 +21,15 @@ interface ChatEntry {
   image: string | null;
 }
 
+interface ChatSummary {
+  id: string;
+  title: string | null;
+  timestamp: string;
+}
+
 type ChatMessage =
-  | { type: 'chat.loaded'; entries: ChatEntry[] }
+  | { type: 'chats.loaded'; chats: ChatSummary[] }
+  | { type: 'chat.loaded'; chatId: string; entries: ChatEntry[] }
   | { type: 'chat.added'; entry: ChatEntry }
   | { type: 'chat.error'; message: string }
   | {
@@ -40,6 +58,8 @@ const sendMessage = (message: unknown): void => {
 
 export const App = (): ReactNode => {
   const [entries, setEntries] = useState<ChatEntry[]>([]);
+  const [chats, setChats] = useState<ChatSummary[]>([]);
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [text, setText] = useState('');
   const [pendingImage, setPendingImage] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState('');
@@ -47,6 +67,18 @@ export const App = (): ReactNode => {
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [settingsConfigured, setSettingsConfigured] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [chatsOpen, setChatsOpen] = useState(false);
+  const [editingChatId, setEditingChatId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
+
+  const saveChatTitle = (chatId: string): void => {
+    const title = editingTitle.trim();
+    if (title) {
+      sendMessage({ type: 'chat.rename', chatId, title });
+    }
+    setEditingChatId(null);
+  };
   const [settingsMessage, setSettingsMessage] = useState('');
   const imageInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -71,7 +103,10 @@ export const App = (): ReactNode => {
               message.message ?? 'Could not save the settings.'
             );
           }
+        } else if (message.type === 'chats.loaded') {
+          setChats(message.chats);
         } else if (message.type === 'chat.loaded') {
+          setActiveChatId(message.chatId);
           setEntries(message.entries);
         } else if (message.type === 'chat.added') {
           setEntries((currentEntries) => [...currentEntries, message.entry]);
@@ -168,6 +203,159 @@ export const App = (): ReactNode => {
 
   return (
     <main className="relative flex h-screen flex-col gap-4 p-6">
+      {settingsLoaded && (
+        <>
+          <button
+            className="absolute right-6 top-6 z-10 inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border-0 bg-[#273542] p-0 text-[#e8edf2]"
+            type="button"
+            aria-label={sidebarOpen ? 'Close navigation' : 'Open navigation'}
+            title={sidebarOpen ? 'Close navigation' : 'Open navigation'}
+            onClick={(): void => setSidebarOpen((open) => !open)}
+          >
+            <Menu size={20} aria-hidden="true" />
+          </button>
+          {sidebarOpen && (
+            <aside className="absolute inset-y-0 right-0 z-20 flex w-64 flex-col border-l border-[#3a4b5a] bg-[#19232d] p-6 shadow-[0_1.5rem_4rem_rgb(0_0_0_/_45%)]">
+              <button
+                className="mb-8 inline-flex min-h-11 min-w-11 self-start items-center justify-center rounded-lg border-0 bg-[#273542] p-0 text-[#e8edf2]"
+                type="button"
+                aria-label="Close navigation"
+                title="Close navigation"
+                onClick={(): void => setSidebarOpen(false)}
+              >
+                <X size={20} aria-hidden="true" />
+              </button>
+              <button
+                className="inline-flex min-h-11 w-full items-center justify-start gap-3 rounded-lg border-0 bg-[#273542] px-4 font-[inherit] font-bold text-[#e8edf2]"
+                type="button"
+                onClick={(): void => {
+                  setSidebarOpen(false);
+                  setChatsOpen(true);
+                }}
+              >
+                Chats
+              </button>
+              <button
+                className="mt-3 inline-flex min-h-11 w-full items-center justify-start gap-3 rounded-lg border-0 bg-[#273542] px-4 font-[inherit] font-bold text-[#e8edf2]"
+                type="button"
+                onClick={(): void => {
+                  setSidebarOpen(false);
+                  setSettingsOpen(true);
+                }}
+              >
+                <Settings size={20} aria-hidden="true" />
+                Settings
+              </button>
+            </aside>
+          )}
+
+          {settingsLoaded && chatsOpen && (
+            <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/[62%] p-6">
+              <section className="flex w-full max-w-[34rem] flex-col gap-6 rounded-2xl border border-[#3a4b5a] bg-[#19232d] px-9 py-8 shadow-[0_1.5rem_4rem_rgb(0_0_0_/_45%)]">
+                <div className="flex items-center justify-between">
+                  <h2 className="m-0 text-2xl">Chats</h2>
+                  <button
+                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border-0 bg-[#273542] p-0 text-[#e8edf2]"
+                    type="button"
+                    aria-label="Close chats"
+                    onClick={(): void => setChatsOpen(false)}
+                  >
+                    <X size={20} aria-hidden="true" />
+                  </button>
+                </div>
+                <div className="flex max-h-80 flex-col gap-2 overflow-y-auto">
+                  {chats.map((chat) => (
+                    <div className="flex items-center gap-2" key={chat.id}>
+                      {editingChatId === chat.id ? (
+                        <input
+                          className="min-h-11 min-w-0 flex-1 rounded-lg border border-[#7dd3fc] bg-[#273542] px-4 font-[inherit] font-bold text-[#e8edf2] outline-none"
+                          value={editingTitle}
+                          autoFocus
+                          onChange={(event): void => setEditingTitle(event.target.value)}
+                          onKeyDown={(event): void => {
+                            if (event.key === 'Enter') {
+                              event.preventDefault();
+                              saveChatTitle(chat.id);
+                            }
+                            if (event.key === 'Escape') {
+                              setEditingChatId(null);
+                            }
+                          }}
+                        />
+                      ) : (
+                        <button
+                          className={`flex min-h-11 flex-1 items-center justify-between rounded-lg border-0 px-4 text-left font-[inherit] font-bold text-[#e8edf2] ${activeChatId === chat.id ? 'bg-[#7dd3fc] text-[#081018]' : 'bg-[#273542]'}`}
+                          type="button"
+                          onClick={(): void => {
+                            sendMessage({ type: 'chat.open', chatId: chat.id });
+                            setChatsOpen(false);
+                          }}
+                        >
+                          {chat.title ?? new Date(chat.timestamp).toLocaleString()}
+                        </button>
+                      )}
+                      {editingChatId !== chat.id && (
+                        <button
+                          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border-0 bg-[#273542] p-0 text-[#e8edf2]"
+                          type="button"
+                          aria-label="Rename chat"
+                          onClick={(): void => {
+                            setEditingChatId(chat.id);
+                            setEditingTitle(chat.title ?? '');
+                          }}
+                        >
+                          <Pencil size={18} aria-hidden="true" />
+                        </button>
+                      )}
+                      {editingChatId === chat.id && (
+                        <button
+                          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border-0 bg-[#7dd3fc] p-0 text-[#081018]"
+                          type="button"
+                          aria-label="Save chat name"
+                          onClick={(): void => saveChatTitle(chat.id)}
+                        >
+                          <Check size={18} aria-hidden="true" />
+                        </button>
+                      )}
+                      {editingChatId === chat.id ? (
+                        <button
+                          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border-0 bg-[#273542] p-0 text-[#e8edf2]"
+                          type="button"
+                          aria-label="Cancel rename"
+                          onClick={(): void => setEditingChatId(null)}
+                        >
+                          <X size={18} aria-hidden="true" />
+                        </button>
+                      ) : (
+                        <button
+                          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border-0 bg-[#ef4444] p-0 text-white"
+                          type="button"
+                          aria-label="Delete chat"
+                          onClick={(): void =>
+                            sendMessage({ type: 'chat.delete', chatId: chat.id })
+                          }
+                        >
+                          <Trash2 size={18} aria-hidden="true" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <button
+                  className="flex min-h-11 items-center justify-center rounded-lg border-0 bg-[#7dd3fc] px-4 font-[inherit] font-bold text-[#081018]"
+                  type="button"
+                  onClick={(): void => {
+                    sendMessage({ type: 'chat.new' });
+                    setChatsOpen(false);
+                  }}
+                >
+                  Start new chat
+                </button>
+              </section>
+            </div>
+          )}
+        </>
+      )}
       <header className="shrink-0">
         <p className="mb-2 text-xs font-bold uppercase tracking-[0.12em] text-[#7dd3fc]">
           Windows desktop AI chat application
@@ -177,7 +365,7 @@ export const App = (): ReactNode => {
 
       {settingsLoaded && settingsConfigured && (
         <button
-          className="absolute right-6 top-6 flex min-h-11 min-w-11 items-center justify-center rounded-lg border-0 bg-[#7dd3fc] p-0 font-[inherit] font-bold text-[#081018] shadow-none hover:bg-[#7dd3fc]"
+          className="absolute right-20 top-6 flex min-h-11 min-w-11 items-center justify-center rounded-lg border-0 bg-[#7dd3fc] p-0 font-[inherit] font-bold text-[#081018] shadow-none hover:bg-[#7dd3fc]"
           type="button"
           aria-label="Open settings"
           title="Settings"
@@ -269,28 +457,30 @@ export const App = (): ReactNode => {
           ) : (
             entries.map((entry) => (
               <article
-                className="mb-3 rounded-xl border border-[#273542] bg-[#19232d] px-4 py-[0.85rem]"
+                className={`mb-3 w-fit max-w-[80%] rounded-xl border border-[#273542] ${entry.userText || entry.image ? 'ml-auto bg-[#19232d]' : 'mr-auto bg-[#202d38]'} px-4 py-[0.85rem]`}
                 key={entry.id}
               >
                 {entry.userText && (
-                  <p className="mb-2 whitespace-pre-wrap break-words">
+                  <p
+                    className={`mb-2 whitespace-pre-wrap break-words ${entry.userText ? 'text-right' : 'text-left'}`}
+                  >
                     {entry.userText}
                   </p>
                 )}
                 {entry.answer && (
-                  <p className="mb-2 whitespace-pre-wrap break-words">
-                    {entry.answer}
-                  </p>
+                  <div className="mb-2 min-w-0 break-words [&_a]:text-[#7dd3fc] [&_a]:underline [&_blockquote]:border-l-4 [&_blockquote]:border-[#3a4b5a] [&_blockquote]:pl-4 [&_code]:font-mono [&_code]:text-sm [&_h1]:mb-3 [&_h1]:text-xl [&_h2]:mb-3 [&_h2]:text-lg [&_h3]:mb-2 [&_h3]:text-base [&_img]:block [&_img]:max-w-40 [&_img]:rounded-lg [&_img]:object-contain [&_li]:ml-5 [&_li]:list-disc [&_ol]:my-2 [&_ol]:list-decimal [&_p]:mb-3 [&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-[#11161c] [&_pre]:p-4 [&_ul]:my-2 [&_ul]:list-disc">
+                    <Markdown remarkPlugins={[remarkGfm]}>{entry.answer}</Markdown>
+                  </div>
                 )}
                 {entry.image && (
                   <img
-                    className="mb-2 block max-h-80 max-w-[32rem] rounded-lg object-contain"
+                    className="mb-2 block max-h-80 max-w-40 rounded-lg object-contain"
                     src={entry.image}
                     alt="Attached"
                   />
                 )}
                 <time
-                  className="text-xs text-[#7d8a97]"
+                  className={`block w-full text-xs text-[#7d8a97] ${entry.userText || entry.image ? 'text-right' : 'text-left'}`}
                   dateTime={entry.timestamp}
                 >
                   {new Date(entry.timestamp).toLocaleString()}

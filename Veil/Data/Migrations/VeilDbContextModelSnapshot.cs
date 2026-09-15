@@ -34,6 +34,24 @@ namespace Veil.Data.Migrations
 
             modelBuilder.Entity("Veil.Data.Chat", b =>
                 {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Chat", (string)null);
+                });
+
+            modelBuilder.Entity("Veil.Data.ChatMessage", b =>
+                {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
@@ -61,7 +79,23 @@ namespace Veil.Data.Migrations
 
                     b.HasIndex("ChatId", "Timestamp");
 
-                    b.ToTable("Chat", (string)null);
+                    b.ToTable("ChatMessage", (string)null);
+                });
+
+            modelBuilder.Entity("Veil.Data.ChatMessage", b =>
+                {
+                    b.HasOne("Veil.Data.Chat", "Chat")
+                        .WithMany("Messages")
+                        .HasForeignKey("ChatId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Chat");
+                });
+
+            modelBuilder.Entity("Veil.Data.Chat", b =>
+                {
+                    b.Navigation("Messages");
                 });
 #pragma warning restore 612, 618
         }

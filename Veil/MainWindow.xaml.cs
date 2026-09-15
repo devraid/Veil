@@ -18,6 +18,7 @@ namespace Veil
         private VeilDbContext? _dbContext;
         private string? _frontendDirectory;
         private Task? _databaseInitializationTask;
+        private Guid _activeChatId;
         private readonly AppSettingsStore _appSettingsStore = new();
         private readonly OpenAiChatService _openAiChatService = new();
 
@@ -49,6 +50,7 @@ namespace Veil
                 }
 
                 FrontendView.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
+                _databaseInitializationTask = InitializeDatabaseAsync();
 
                 if (!string.IsNullOrWhiteSpace(frontendUrl))
                 {
@@ -64,7 +66,6 @@ namespace Veil
                     FrontendView.CoreWebView2.Navigate("https://veil.local/index.html");
                 }
 
-                _databaseInitializationTask = InitializeDatabaseAsync();
             }
             catch (Exception exception)
             {
@@ -90,33 +91,7 @@ namespace Veil
 
         private static async Task ApplyMigrationsAsync(VeilDbContext dbContext)
         {
-            var appliedMigrations = await dbContext.Database.GetAppliedMigrationsAsync();
-            if (!appliedMigrations.Any() && await HasTableAsync(dbContext, "Chat"))
-            {
-                var initialMigration = (await dbContext.Database.GetPendingMigrationsAsync()).FirstOrDefault();
-                if (initialMigration is not null)
-                {
-                    await dbContext.Database.ExecuteSqlRawAsync(
-                        "CREATE TABLE IF NOT EXISTS \"__EFMigrationsHistory\" (\"MigrationId\" TEXT NOT NULL CONSTRAINT \"PK___EFMigrationsHistory\" PRIMARY KEY, \"ProductVersion\" TEXT NOT NULL);");
-                    await dbContext.Database.ExecuteSqlInterpolatedAsync(
-                        $"INSERT OR IGNORE INTO \"__EFMigrationsHistory\" (\"MigrationId\", \"ProductVersion\") VALUES ({initialMigration}, {"10.0.0"});");
-                }
-            }
-
             await dbContext.Database.MigrateAsync();
-        }
-
-        private static async Task<bool> HasTableAsync(VeilDbContext dbContext, string tableName)
-        {
-            await using var connection = dbContext.Database.GetDbConnection();
-            await connection.OpenAsync();
-            await using var command = connection.CreateCommand();
-            command.CommandText = "SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = $tableName);";
-            var parameter = command.CreateParameter();
-            parameter.ParameterName = "$tableName";
-            parameter.Value = tableName;
-            command.Parameters.Add(parameter);
-            return Convert.ToInt32(await command.ExecuteScalarAsync()) == 1;
         }
 
         private async void CoreWebView2_WebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
@@ -137,7 +112,35 @@ namespace Veil
                         await _databaseInitializationTask;
                     }
                     await SendApiKeyStatusAsync();
-                    await SendExistingChatsAsync();
+                    await SendChatsAsync();
+                    break;
+                case "chat.open":
+                    if (_databaseInitializationTask is not null)
+                    {
+                        await _databaseInitializationTask;
+                    }
+                    await OpenChatAsync(root);
+                    break;
+                case "chat.new":
+                    if (_databaseInitializationTask is not null)
+                    {
+                        await _databaseInitializationTask;
+                    }
+                    await StartNewChatAsync();
+                    break;
+                case "chat.delete":
+                    if (_databaseInitializationTask is not null)
+                    {
+                        await _databaseInitializationTask;
+                    }
+                    await DeleteChatAsync(root);
+                    break;
+                case "chat.rename":
+                    if (_databaseInitializationTask is not null)
+                    {
+                        await _databaseInitializationTask;
+                    }
+                    await RenameChatAsync(root);
                     break;
                 case "chat.submit":
                     if (_databaseInitializationTask is not null)
@@ -198,7 +201,7 @@ namespace Veil
             await SendToFrontendAsync(new { type = "settings.apiKeySaved", success = true });
         }
 
-        private async Task SendExistingChatsAsync()
+        private async Task SendChatsAsync()
         {
             if (_dbContext is null)
             {
@@ -206,14 +209,131 @@ namespace Veil
             }
 
             var chats = await _dbContext.Chats
-                .OrderBy(chat => chat.Timestamp)
+                .Include(chat => chat.Messages)
+                .OrderByDescending(chat => chat.Timestamp)
                 .ToListAsync();
+
+            foreach (var chat in chats.Where(chat => string.IsNullOrWhiteSpace(chat.Title)))
+            {
+                var firstMessage = chat.Messages
+                    .Where(message => message.Role == "user" && !string.IsNullOrWhiteSpace(message.Content))
+                    .OrderBy(message => message.Timestamp)
+                    .FirstOrDefault();
+                if (firstMessage is not null)
+                {
+                    chat.Title = firstMessage.Content.Length > 60
+                        ? firstMessage.Content[..60]
+                        : firstMessage.Content;
+                }
+            }
+
+            await _dbContext.SaveChangesAsync();
 
             await SendToFrontendAsync(new
             {
-                type = "chat.loaded",
-                entries = chats.Select(CreateFrontendEntry)
+                type = "chats.loaded",
+                chats = chats.Select(chat => new { id = chat.Id, chat.Title, chat.Timestamp })
             });
+
+            if (_activeChatId == Guid.Empty && chats.Count > 0)
+            {
+                await OpenChatAsync(chats[0].Id);
+            }
+        }
+
+        private async Task OpenChatAsync(JsonElement message)
+        {
+            if (message.TryGetProperty("chatId", out var chatIdProperty) &&
+                Guid.TryParse(chatIdProperty.GetString(), out var chatId))
+            {
+                await OpenChatAsync(chatId);
+            }
+        }
+
+        private async Task OpenChatAsync(Guid chatId)
+        {
+            if (_dbContext is null || !await _dbContext.Chats.AnyAsync(chat => chat.Id == chatId))
+            {
+                return;
+            }
+
+            _activeChatId = chatId;
+            var messages = await _dbContext.ChatMessages
+                .Where(message => message.ChatId == chatId)
+                .OrderBy(message => message.Timestamp)
+                .ToListAsync();
+            await SendToFrontendAsync(new
+            {
+                type = "chat.loaded",
+                chatId,
+                entries = messages.Select(CreateFrontendEntry)
+            });
+        }
+
+        private async Task StartNewChatAsync()
+        {
+            if (_dbContext is null)
+            {
+                return;
+            }
+
+            var chat = new Chat { Id = Guid.NewGuid(), Timestamp = DateTime.UtcNow };
+            _dbContext.Chats.Add(chat);
+            await _dbContext.SaveChangesAsync();
+            _activeChatId = chat.Id;
+            await SendChatsAsync();
+            await SendToFrontendAsync(new { type = "chat.loaded", chatId = chat.Id, entries = Array.Empty<object>() });
+        }
+
+        private async Task DeleteChatAsync(JsonElement message)
+        {
+            if (_dbContext is null ||
+                !message.TryGetProperty("chatId", out var chatIdProperty) ||
+                !Guid.TryParse(chatIdProperty.GetString(), out var chatId))
+            {
+                return;
+            }
+
+            var chat = await _dbContext.Chats.FindAsync(chatId);
+            if (chat is null)
+            {
+                return;
+            }
+
+            _dbContext.Chats.Remove(chat);
+            await _dbContext.SaveChangesAsync();
+            if (_activeChatId == chatId)
+            {
+                _activeChatId = Guid.Empty;
+            }
+            await SendChatsAsync();
+        }
+
+        private async Task RenameChatAsync(JsonElement message)
+        {
+            if (_dbContext is null ||
+                !message.TryGetProperty("chatId", out var chatIdProperty) ||
+                !Guid.TryParse(chatIdProperty.GetString(), out var chatId) ||
+                !message.TryGetProperty("title", out var titleProperty))
+            {
+                return;
+            }
+
+            var title = titleProperty.GetString()?.Trim();
+            if (string.IsNullOrWhiteSpace(title))
+            {
+                return;
+            }
+
+            var chat = await _dbContext.Chats.FindAsync(chatId);
+            if (chat is null)
+            {
+                return;
+            }
+
+            chat.Title = title.Length > 256 ? title[..256] : title;
+            await _dbContext.SaveChangesAsync();
+            await SendChatsAsync();
         }
 
         private async Task SaveChatAsync(JsonElement message)
@@ -235,29 +355,43 @@ namespace Veil
                 return;
             }
 
-            var imagePath = await SaveImageAsync(imageDataUrl);
-            var chat = new Chat
+            if (_activeChatId == Guid.Empty)
             {
-                ChatId = Guid.NewGuid(),
+                await StartNewChatAsync();
+            }
+
+            var chatConversation = await _dbContext.Chats.FindAsync(_activeChatId);
+            if (chatConversation is not null &&
+                string.IsNullOrWhiteSpace(chatConversation.Title) &&
+                !string.IsNullOrWhiteSpace(text))
+            {
+                chatConversation.Title = text.Length > 60 ? text[..60] : text;
+            }
+
+            var imagePath = await SaveImageAsync(imageDataUrl);
+            var chat = new ChatMessage
+            {
+                ChatId = _activeChatId,
                 Role = "user",
                 Content = text ?? string.Empty,
                 Image = imagePath,
                 Timestamp = DateTime.UtcNow
             };
 
-            _dbContext.Chats.Add(chat);
+            _dbContext.ChatMessages.Add(chat);
             await _dbContext.SaveChangesAsync();
+            await SendChatsAsync();
             await SendToFrontendAsync(new { type = "chat.added", entry = CreateFrontendEntry(chat) });
 
             try
             {
-                var conversation = await _dbContext.Chats
+                var conversation = await _dbContext.ChatMessages
                     .Where(savedChat => savedChat.ChatId == chat.ChatId)
                     .OrderBy(savedChat => savedChat.Timestamp)
                     .Select(savedChat => new ChatTurn(savedChat.Role, savedChat.Content, savedChat.Image))
                     .ToListAsync();
                 var response = await _openAiChatService.GenerateResponseAsync(conversation);
-                var aiChat = new Chat
+                var aiChat = new ChatMessage
                 {
                     ChatId = chat.ChatId,
                     Role = "ai",
@@ -265,7 +399,7 @@ namespace Veil
                     Timestamp = DateTime.UtcNow
                 };
 
-                _dbContext.Chats.Add(aiChat);
+                _dbContext.ChatMessages.Add(aiChat);
                 await _dbContext.SaveChangesAsync();
                 await SendToFrontendAsync(new { type = "chat.added", entry = CreateFrontendEntry(aiChat) });
             }
@@ -275,7 +409,7 @@ namespace Veil
             }
         }
 
-        private static object CreateFrontendEntry(Chat chat)
+        private static object CreateFrontendEntry(ChatMessage chat)
         {
             return new
             {
