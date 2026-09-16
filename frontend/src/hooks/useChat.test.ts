@@ -63,6 +63,9 @@ describe('useChat', () => {
         type: 'settings.apiKeyStatus',
         configured: false,
         model: 'gpt-test',
+        promptInstructions: '',
+        maxRecentMessages: 20,
+        answerLength: 'Balanced',
       });
     });
     expect(result.current.settingsLoaded).toBe(true);

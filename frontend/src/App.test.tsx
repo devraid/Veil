@@ -42,7 +42,10 @@ describe('App interactions', () => {
     await sendBackendMessage({
       type: 'settings.apiKeyStatus',
       configured: false,
-      model: null,
+      model: 'gpt-4o-mini',
+      promptInstructions: '',
+      maxRecentMessages: 20,
+      answerLength: 'Balanced',
     });
 
     await user.click(view.getByRole('button', { name: 'Save' }));
@@ -59,7 +62,10 @@ describe('App interactions', () => {
     await sendBackendMessage({
       type: 'settings.apiKeyStatus',
       configured: false,
-      model: null,
+      model: 'gpt-4o-mini',
+      promptInstructions: '',
+      maxRecentMessages: 20,
+      answerLength: 'Balanced',
     });
 
     const apiKeyInput = view.getByLabelText('OpenAI API key');
@@ -119,6 +125,9 @@ describe('App interactions', () => {
       type: 'settings.apiKeyStatus',
       configured: true,
       model: 'gpt-test',
+      promptInstructions: '',
+      maxRecentMessages: 20,
+      answerLength: 'Balanced',
     });
 
     const editor = view.getByRole('textbox', { name: 'Chat message' });
@@ -139,6 +148,9 @@ describe('App interactions', () => {
       type: 'settings.apiKeyStatus',
       configured: true,
       model: 'gpt-test',
+      promptInstructions: '',
+      maxRecentMessages: 20,
+      answerLength: 'Balanced',
     });
     await sendBackendMessage({
       type: 'chats.loaded',
@@ -175,6 +187,9 @@ describe('App interactions', () => {
       type: 'settings.apiKeyStatus',
       configured: true,
       model: 'gpt-test',
+      promptInstructions: '',
+      maxRecentMessages: 20,
+      answerLength: 'Balanced',
     });
     await sendBackendMessage({
       type: 'chats.loaded',
@@ -209,6 +224,9 @@ describe('App interactions', () => {
       type: 'settings.apiKeyStatus',
       configured: true,
       model: 'gpt-test',
+      promptInstructions: '',
+      maxRecentMessages: 20,
+      answerLength: 'Balanced',
     });
 
     await user.click(view.getByRole('button', { name: 'Open navigation' }));
@@ -229,6 +247,9 @@ describe('App interactions', () => {
       type: 'settings.apiKeyStatus',
       configured: true,
       model: 'gpt-test',
+      promptInstructions: '',
+      maxRecentMessages: 20,
+      answerLength: 'Balanced',
     });
     await sendBackendMessage({
       type: 'chats.loaded',
@@ -265,6 +286,9 @@ describe('App interactions', () => {
       type: 'settings.apiKeyStatus',
       configured: true,
       model: 'gpt-test',
+      promptInstructions: '',
+      maxRecentMessages: 20,
+      answerLength: 'Balanced',
     });
 
     await user.click(view.getByRole('button', { name: 'Open navigation' }));
@@ -291,6 +315,9 @@ describe('App interactions', () => {
       type: 'settings.apiKeyStatus',
       configured: true,
       model: 'gpt-test',
+      promptInstructions: '',
+      maxRecentMessages: 20,
+      answerLength: 'Balanced',
     });
     const editor = view.getByRole('textbox', { name: 'Chat message' });
 
@@ -316,6 +343,9 @@ describe('App interactions', () => {
       type: 'settings.apiKeyStatus',
       configured: true,
       model: 'gpt-test',
+      promptInstructions: '',
+      maxRecentMessages: 20,
+      answerLength: 'Balanced',
     });
     const editor = view.getByRole('textbox', { name: 'Chat message' });
 
@@ -335,6 +365,9 @@ describe('App interactions', () => {
       type: 'settings.apiKeyStatus',
       configured: true,
       model: 'gpt-test',
+      promptInstructions: '',
+      maxRecentMessages: 20,
+      answerLength: 'Balanced',
     });
     const file = new File(['image'], 'image.png', { type: 'image/png' });
     const readAsDataURL = vi
@@ -372,6 +405,9 @@ describe('App interactions', () => {
       type: 'settings.apiKeyStatus',
       configured: true,
       model: 'gpt-test',
+      promptInstructions: '',
+      maxRecentMessages: 20,
+      answerLength: 'Balanced',
     });
     const file = new File(['image'], 'image.png', { type: 'image/png' });
     vi.spyOn(FileReader.prototype, 'readAsDataURL').mockImplementation(
@@ -408,6 +444,9 @@ describe('App interactions', () => {
       type: 'settings.apiKeyStatus',
       configured: true,
       model: 'gpt-test',
+      promptInstructions: '',
+      maxRecentMessages: 20,
+      answerLength: 'Balanced',
     });
     await sendBackendMessage({
       type: 'chats.loaded',
@@ -444,6 +483,9 @@ describe('App interactions', () => {
       type: 'settings.apiKeyStatus',
       configured: true,
       model: 'gpt-test',
+      promptInstructions: '',
+      maxRecentMessages: 20,
+      answerLength: 'Balanced',
     });
 
     await user.click(view.getByRole('button', { name: 'Open settings' }));
@@ -468,6 +510,9 @@ describe('App interactions', () => {
       type: 'settings.apiKeyStatus',
       configured: true,
       model: 'gpt-test',
+      promptInstructions: '',
+      maxRecentMessages: 20,
+      answerLength: 'Balanced',
     });
     await sendBackendMessage({
       type: 'chat.error',

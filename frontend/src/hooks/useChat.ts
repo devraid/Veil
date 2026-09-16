@@ -51,12 +51,10 @@ export const useChat = ({ onApiKeySaved }: UseChatOptions): UseChatState => {
       if (message.type === 'settings.apiKeyStatus') {
         setSettingsLoaded(true);
         setSettingsConfigured(message.configured);
-        if (message.model) {
-          setModel(message.model);
-        }
-        setPromptInstructions(message.promptInstructions ?? '');
-        setMaxRecentMessages(message.maxRecentMessages ?? 20);
-        setAnswerLength(message.answerLength ?? 'Balanced');
+        setModel(message.model);
+        setPromptInstructions(message.promptInstructions);
+        setMaxRecentMessages(message.maxRecentMessages);
+        setAnswerLength(message.answerLength);
       } else if (message.type === 'settings.apiKeySaved') {
         if (message.success) {
           onApiKeySaved();

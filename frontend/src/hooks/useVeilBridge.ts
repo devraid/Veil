@@ -23,10 +23,10 @@ export type ChatMessage =
   | {
       type: 'settings.apiKeyStatus';
       configured: boolean;
-      model?: string | null;
-      promptInstructions?: string | null;
-      maxRecentMessages?: number;
-      answerLength?: 'Short' | 'Balanced' | 'Advanced';
+      model: string;
+      promptInstructions: string;
+      maxRecentMessages: number;
+      answerLength: 'Short' | 'Balanced' | 'Advanced';
     }
   | { type: 'settings.apiKeySaved'; success: boolean; message?: string };
 
