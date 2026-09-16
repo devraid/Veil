@@ -26,6 +26,12 @@ namespace Veil.Data.Migrations
                     b.Property<DateTime>("Timestamp")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Summary")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SummaryMessageCount")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Title")
                         .HasMaxLength(256)
                         .HasColumnType("TEXT");

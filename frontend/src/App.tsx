@@ -27,14 +27,20 @@ export const App = (): ReactNode => {
   const clearApiKey = useCallback((): void => setApiKey(''), []);
   const {
     activeChatId,
+    answerLength,
     chats,
     entries,
     model,
+    maxRecentMessages,
+    promptInstructions,
+    setAnswerLength,
+    setMaxRecentMessages,
     settingsConfigured,
     settingsLoaded,
     settingsMessage,
     settingsOpen,
     setModel,
+    setPromptInstructions,
     setSettingsMessage,
     setSettingsOpen,
   } = useChat({ onApiKeySaved: clearApiKey });
@@ -81,6 +87,9 @@ export const App = (): ReactNode => {
       type: 'settings.saveApiKey',
       apiKey: apiKey.trim(),
       model: model.trim(),
+      promptInstructions,
+      maxRecentMessages,
+      answerLength,
     });
   };
 
@@ -332,6 +341,50 @@ export const App = (): ReactNode => {
                   }
                   className="rounded-lg border border-[#3a4b5a] bg-[#19232d] p-3 text-[#e8edf2] placeholder:text-[#666]"
                 />
+              </label>
+              <label className="flex flex-col gap-2 text-sm font-bold text-[#c8d3dc]">
+                Prompt instructions
+                <textarea
+                  aria-label="Prompt instructions"
+                  placeholder="Optional instructions for AI responses"
+                  value={promptInstructions}
+                  onChange={(event: ChangeEvent<HTMLTextAreaElement>): void =>
+                    setPromptInstructions(event.target.value)
+                  }
+                  rows={4}
+                  className="resize-y rounded-lg border border-[#3a4b5a] bg-[#19232d] p-3 font-[inherit] text-[#e8edf2] placeholder:text-[#666]"
+                />
+              </label>
+              <label className="flex flex-col gap-2 text-sm font-bold text-[#c8d3dc]">
+                Maximum recent messages
+                <input
+                  aria-label="Maximum recent messages"
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={maxRecentMessages}
+                  onChange={(event: ChangeEvent<HTMLInputElement>): void =>
+                    setMaxRecentMessages(Number(event.target.value))
+                  }
+                  className="rounded-lg border border-[#3a4b5a] bg-[#19232d] p-3 text-[#e8edf2]"
+                />
+              </label>
+              <label className="flex flex-col gap-2 text-sm font-bold text-[#c8d3dc]">
+                Answer length
+                <select
+                  aria-label="Answer length"
+                  value={answerLength}
+                  onChange={(event: ChangeEvent<HTMLSelectElement>): void =>
+                    setAnswerLength(
+                      event.target.value as 'Short' | 'Balanced' | 'Advanced'
+                    )
+                  }
+                  className="rounded-lg border border-[#3a4b5a] bg-[#19232d] p-3 text-[#e8edf2]"
+                >
+                  <option value="Short">Short</option>
+                  <option value="Balanced">Balanced</option>
+                  <option value="Advanced">Advanced</option>
+                </select>
               </label>
               <label className="flex flex-col gap-2 text-sm font-bold text-[#c8d3dc]">
                 Model

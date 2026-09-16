@@ -22,7 +22,17 @@ Install the following on a Windows development machine:
 - Visual Studio with WPF support
 - WebView2 Runtime on Windows versions that do not include it
 
-For local development, create `frontend\.env` if needed and add `OPENAI_API_KEY` and `OPENAI_MODEL`.
+For local development, create `.env` in the repository root. The application reads these optional OpenAI settings:
+
+```env
+OPENAI_API_KEY=your-api-key
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_PROMPT_INSTRUCTIONS=Be concise and use bullet points.
+OPENAI_MAX_RECENT_MESSAGES=20
+OPENAI_ANSWER_LENGTH=Balanced
+```
+
+`OPENAI_MAX_RECENT_MESSAGES` must be from `1` through `100`. `OPENAI_ANSWER_LENGTH` is case-sensitive and must be `Short`, `Balanced`, or `Advanced`. Settings saved in the application take precedence over `.env` values; built-in defaults apply when neither is set.
 
 ## Run the application locally
 

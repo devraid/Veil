@@ -47,6 +47,7 @@ namespace Veil
                 services.AddSingleton<ChatRequestCancellation>();
                 services.AddTransient<MainWindow>();
                 _services = services.BuildServiceProvider();
+                _services.GetRequiredService<SettingsService>().InitializeDevelopmentSettings();
                 _services.GetRequiredService<MainWindow>().Show();
                 WriteStartupLog("Main window shown.");
             }

@@ -73,6 +73,42 @@ describe('App interactions', () => {
       type: 'settings.saveApiKey',
       apiKey: 'sk-test',
       model: 'gpt-test',
+      promptInstructions: '',
+      maxRecentMessages: 20,
+      answerLength: 'Balanced',
+    });
+  });
+
+  it('saves bounded context settings through the WebView bridge', async () => {
+    const user = userEvent.setup();
+    const view = render(<App />);
+    await sendBackendMessage({
+      type: 'settings.apiKeyStatus',
+      configured: true,
+      model: 'gpt-test',
+      promptInstructions: 'Be concise.',
+      maxRecentMessages: 20,
+      answerLength: 'Balanced',
+    });
+
+    await user.click(view.getByRole('button', { name: 'Open settings' }));
+    await user.clear(view.getByLabelText('Prompt instructions'));
+    await user.type(
+      view.getByLabelText('Prompt instructions'),
+      'Use bullet points.'
+    );
+    await user.clear(view.getByLabelText('Maximum recent messages'));
+    await user.type(view.getByLabelText('Maximum recent messages'), '12');
+    await user.selectOptions(view.getByLabelText('Answer length'), 'Advanced');
+    await user.click(view.getByRole('button', { name: 'Save' }));
+
+    expect(postMessage).toHaveBeenCalledWith({
+      type: 'settings.saveApiKey',
+      apiKey: '',
+      model: 'gpt-test',
+      promptInstructions: 'Use bullet points.',
+      maxRecentMessages: 12,
+      answerLength: 'Advanced',
     });
   });
 

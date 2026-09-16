@@ -8,11 +8,16 @@ public sealed class StartupService
     private readonly Lazy<Task<ChatService>> _initialization;
     private readonly OpenAiChatService _openAiChatService;
     private readonly ImageDataUrlService _imageDataUrlService;
+    private readonly SettingsService _settingsService;
 
-    public StartupService(OpenAiChatService openAiChatService, ImageDataUrlService imageDataUrlService)
+    public StartupService(
+        OpenAiChatService openAiChatService,
+        ImageDataUrlService imageDataUrlService,
+        SettingsService settingsService)
     {
         _openAiChatService = openAiChatService;
         _imageDataUrlService = imageDataUrlService;
+        _settingsService = settingsService;
         _initialization = new Lazy<Task<ChatService>>(InitializeCoreAsync, LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
@@ -22,6 +27,6 @@ public sealed class StartupService
     {
         var dbContext = VeilDbContextFactory.Create();
         await dbContext.Database.MigrateAsync();
-        return new ChatService(dbContext, _openAiChatService, _imageDataUrlService);
+        return new ChatService(dbContext, _openAiChatService, _imageDataUrlService, _settingsService);
     }
 }

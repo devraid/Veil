@@ -9,21 +9,53 @@ public sealed class ChatService
     private readonly VeilDbContext _dbContext;
     private readonly OpenAiChatService _openAiChatService;
     private readonly ImageDataUrlService _imageDataUrlService;
+    private readonly SettingsService _settingsService;
     private Guid _activeChatId;
 
     public ChatService(
         VeilDbContext dbContext,
         OpenAiChatService openAiChatService,
-        ImageDataUrlService imageDataUrlService)
+        ImageDataUrlService imageDataUrlService,
+        SettingsService settingsService)
     {
         _dbContext = dbContext;
         _openAiChatService = openAiChatService;
         _imageDataUrlService = imageDataUrlService;
+        _settingsService = settingsService;
     }
 
     public async Task<ChatEntryResponse> GenerateAiResponseDtoAsync(IReadOnlyList<ChatTurn> conversation, CancellationToken cancellationToken = default)
     {
-        var response = await _openAiChatService.GenerateResponseAsync(conversation, cancellationToken);
+        var settings = _settingsService.GetEffectiveSettings();
+        var recentMessageCount = settings.MaxRecentMessages;
+        var chat = await _dbContext.Chats.FindAsync([_activeChatId], cancellationToken)
+            ?? throw new InvalidOperationException("The active chat no longer exists.");
+        var summarizedMessageCount = Math.Min(chat.SummaryMessageCount, conversation.Count);
+        var messagesToSummarize = conversation
+            .Skip(summarizedMessageCount)
+            .Take(Math.Max(0, conversation.Count - recentMessageCount - summarizedMessageCount))
+            .ToList();
+        if (messagesToSummarize.Count > 0)
+        {
+            chat.Summary = await _openAiChatService.GenerateSummaryAsync(
+                chat.Summary,
+                messagesToSummarize,
+                cancellationToken);
+            chat.SummaryMessageCount += messagesToSummarize.Count;
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        var requestContext = conversation.TakeLast(recentMessageCount).ToList();
+        if (!string.IsNullOrWhiteSpace(settings.PromptInstructions))
+        {
+            requestContext.Insert(0, new ChatTurn("system", settings.PromptInstructions, null));
+        }
+        if (!string.IsNullOrWhiteSpace(chat.Summary))
+        {
+            requestContext.Insert(1, new ChatTurn("system", $"Conversation summary:\n{chat.Summary}", null));
+        }
+
+        var response = await _openAiChatService.GenerateResponseAsync(requestContext, cancellationToken);
         var aiChat = new ChatMessage
         {
             ChatId = _activeChatId,

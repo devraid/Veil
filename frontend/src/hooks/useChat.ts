@@ -9,17 +9,23 @@ interface UseChatOptions {
 
 interface UseChatState {
   activeChatId: string | null;
+  answerLength: 'Short' | 'Balanced' | 'Advanced';
   chats: ChatSummary[];
   entries: ChatEntry[];
   model: string;
+  maxRecentMessages: number;
+  promptInstructions: string;
   sendMessage: (message: unknown) => void;
   settingsConfigured: boolean;
   settingsLoaded: boolean;
   settingsMessage: string;
   setActiveChatId: Dispatch<SetStateAction<string | null>>;
+  setAnswerLength: Dispatch<SetStateAction<'Short' | 'Balanced' | 'Advanced'>>;
   setChats: Dispatch<SetStateAction<ChatSummary[]>>;
   setEntries: Dispatch<SetStateAction<ChatEntry[]>>;
   setModel: Dispatch<SetStateAction<string>>;
+  setMaxRecentMessages: Dispatch<SetStateAction<number>>;
+  setPromptInstructions: Dispatch<SetStateAction<string>>;
   setSettingsMessage: Dispatch<SetStateAction<string>>;
   setSettingsOpen: Dispatch<SetStateAction<boolean>>;
   settingsOpen: boolean;
@@ -29,9 +35,14 @@ export const useChat = ({ onApiKeySaved }: UseChatOptions): UseChatState => {
   const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [chats, setChats] = useState<ChatSummary[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [answerLength, setAnswerLength] = useState<
+    'Short' | 'Balanced' | 'Advanced'
+  >('Balanced');
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [settingsConfigured, setSettingsConfigured] = useState(false);
   const [model, setModel] = useState('gpt-4o-mini');
+  const [maxRecentMessages, setMaxRecentMessages] = useState(20);
+  const [promptInstructions, setPromptInstructions] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsMessage, setSettingsMessage] = useState('');
 
@@ -43,6 +54,9 @@ export const useChat = ({ onApiKeySaved }: UseChatOptions): UseChatState => {
         if (message.model) {
           setModel(message.model);
         }
+        setPromptInstructions(message.promptInstructions ?? '');
+        setMaxRecentMessages(message.maxRecentMessages ?? 20);
+        setAnswerLength(message.answerLength ?? 'Balanced');
       } else if (message.type === 'settings.apiKeySaved') {
         if (message.success) {
           onApiKeySaved();
@@ -80,17 +94,23 @@ export const useChat = ({ onApiKeySaved }: UseChatOptions): UseChatState => {
 
   return {
     activeChatId,
+    answerLength,
     chats,
     entries,
     model,
+    maxRecentMessages,
+    promptInstructions,
     sendMessage,
     settingsConfigured,
     settingsLoaded,
     settingsMessage,
     setActiveChatId,
+    setAnswerLength,
     setChats,
     setEntries,
     setModel,
+    setMaxRecentMessages,
+    setPromptInstructions,
     setSettingsMessage,
     setSettingsOpen,
     settingsOpen,

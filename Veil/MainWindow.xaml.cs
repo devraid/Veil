@@ -86,20 +86,30 @@ namespace Veil
 
         private async Task SendApiKeyStatusAsync()
         {
-            var storedSettings = _settingsService.GetStoredSettings();
+            var storedSettings = _settingsService.GetEffectiveSettings();
             var configured = _settingsService.IsConfigured();
-            await SendToFrontendAsync(new ApiKeyStatusResponse(configured, storedSettings?.Model));
+            await SendToFrontendAsync(new ApiKeyStatusResponse(
+                configured,
+                storedSettings.Model,
+                storedSettings.PromptInstructions,
+                storedSettings.MaxRecentMessages,
+                storedSettings.AnswerLength));
             if (configured)
             {
-                await SendChatsAsync();
+                await LoadSelectedChatAsync();
             }
         }
 
         private async Task SaveApiKeyAsync(SaveApiKeyCommand message)
         {
-            if (!_settingsService.Save(message.ApiKey, message.Model))
+            if (!_settingsService.Save(
+                message.ApiKey,
+                message.Model,
+                message.PromptInstructions,
+                message.MaxRecentMessages,
+                message.AnswerLength))
             {
-                await SendToFrontendAsync(new ApiKeySavedResponse(false, "Enter an API key and model."));
+                await SendToFrontendAsync(new ApiKeySavedResponse(false, "Enter an API key."));
                 return;
             }
             await SendToFrontendAsync(new ApiKeySavedResponse(true));
@@ -114,14 +124,14 @@ namespace Veil
 
             var chats = await _chatService.GetChatsAsync();
             await SendToFrontendAsync(new ChatsLoadedResponse(chats));
+        }
 
+        private async Task LoadSelectedChatAsync()
+        {
             var lastChatId = _settingsService.GetLastChatId();
-            var chatToOpen = lastChatId.HasValue && chats.Any(chat => chat.Id == lastChatId.Value)
-                ? lastChatId.Value
-                : chats.FirstOrDefault()?.Id ?? Guid.Empty;
-            if (_chatService.ActiveChatId == Guid.Empty && chatToOpen != Guid.Empty)
+            if (lastChatId.HasValue)
             {
-                await OpenChatAsync(chatToOpen);
+                await OpenChatAsync(lastChatId.Value);
             }
         }
 

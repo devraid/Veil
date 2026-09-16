@@ -19,6 +19,8 @@ public sealed class VeilDbContext : DbContext
         {
             entity.ToTable("Chat");
             entity.HasKey(chat => chat.Id);
+            entity.Property(chat => chat.SummaryMessageCount).IsRequired();
+            entity.Property(chat => chat.Summary).IsRequired(false);
             entity.Property(chat => chat.Title).HasMaxLength(256).IsRequired(false);
             entity.Property(chat => chat.Timestamp).IsRequired();
         });
@@ -45,6 +47,10 @@ public sealed class Chat
     public Guid Id { get; set; }
 
     public string? Title { get; set; }
+
+    public string? Summary { get; set; }
+
+    public int SummaryMessageCount { get; set; }
 
     public DateTime Timestamp { get; set; }
 

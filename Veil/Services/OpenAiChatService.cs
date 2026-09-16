@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -10,7 +9,6 @@ namespace Veil.Services;
 
 public sealed class OpenAiChatService
 {
-    private const string DefaultModel = "gpt-4o-mini";
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(60);
     private static readonly HttpClient HttpClient = new();
     private readonly SettingsService _settingsService;
@@ -26,21 +24,20 @@ public sealed class OpenAiChatService
         IReadOnlyList<ChatTurn> conversation,
         CancellationToken cancellationToken = default)
     {
-        var settings = _settingsService.GetStoredSettings();
-        var apiKey = settings?.ApiKey ?? GetEnvironmentValue("OPENAI_API_KEY");
+        var settings = _settingsService.GetEffectiveSettings();
+        var apiKey = settings.ApiKey;
         if (string.IsNullOrWhiteSpace(apiKey))
         {
             throw new InvalidOperationException("OPENAI_API_KEY is not configured.");
         }
 
-        var model = string.IsNullOrWhiteSpace(settings?.Model)
-            ? GetEnvironmentValue("OPENAI_MODEL") ?? DefaultModel
-            : settings.Model;
+        var model = string.IsNullOrWhiteSpace(settings.Model) ? AppSettingsStore.DefaultModel : settings.Model;
 
         var request = new
         {
             model,
-            messages = conversation.Select(CreateOpenAiMessage)
+            messages = conversation.Select(CreateOpenAiMessage),
+            max_completion_tokens = GetMaxCompletionTokens(settings.AnswerLength)
         };
 
         using var httpRequest = new HttpRequestMessage(
@@ -76,6 +73,60 @@ public sealed class OpenAiChatService
         return content.Trim();
     }
 
+    public async Task<string> GenerateSummaryAsync(
+        string? existingSummary,
+        IReadOnlyList<ChatTurn> messages,
+        CancellationToken cancellationToken = default)
+    {
+        var summaryPrompt = "Maintain a short internal conversation summary. Keep goals, decisions, facts, preferences, and unresolved work. Omit small talk and repetition.";
+        var summaryContext = new List<ChatTurn> { new("system", summaryPrompt, null) };
+        if (!string.IsNullOrWhiteSpace(existingSummary))
+        {
+            summaryContext.Add(new ChatTurn("system", $"Existing summary:\n{existingSummary}", null));
+        }
+        summaryContext.AddRange(messages);
+        return await GenerateCompletionAsync(summaryContext, 500, cancellationToken);
+    }
+
+    private async Task<string> GenerateCompletionAsync(
+        IReadOnlyList<ChatTurn> conversation,
+        int maxCompletionTokens,
+        CancellationToken cancellationToken)
+    {
+        var settings = _settingsService.GetEffectiveSettings();
+        var apiKey = settings.ApiKey;
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            throw new InvalidOperationException("OPENAI_API_KEY is not configured.");
+        }
+
+        var model = string.IsNullOrWhiteSpace(settings.Model) ? AppSettingsStore.DefaultModel : settings.Model;
+        var request = new { model, messages = conversation.Select(CreateOpenAiMessage), max_completion_tokens = maxCompletionTokens };
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/chat/completions")
+        {
+            Content = JsonContent.Create(request)
+        };
+        httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        using var timeoutSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutSource.CancelAfter(RequestTimeout);
+        using var response = await HttpClient.SendAsync(httpRequest, timeoutSource.Token);
+        var responseBody = await response.Content.ReadAsStringAsync(timeoutSource.Token);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new HttpRequestException($"OpenAI request failed with status {(int)response.StatusCode}: {GetErrorMessage(responseBody)}");
+        }
+        using var document = JsonDocument.Parse(responseBody);
+        return document.RootElement.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString()?.Trim()
+            ?? throw new InvalidOperationException("OpenAI returned an empty response.");
+    }
+
+    private static int GetMaxCompletionTokens(string? answerLength) => answerLength switch
+    {
+        "Short" => 300,
+        "Advanced" or "Large" => 2_000,
+        _ => 800
+    };
+
     private object CreateOpenAiMessage(ChatTurn turn)
     {
         var content = new List<object>();
@@ -99,41 +150,6 @@ public sealed class OpenAiChatService
             role = turn.Role == "ai" ? "assistant" : turn.Role,
             content
         };
-    }
-
-    private static string? GetEnvironmentValue(string name)
-    {
-        var value = Environment.GetEnvironmentVariable(name);
-        if (!string.IsNullOrWhiteSpace(value))
-        {
-            return value.Trim();
-        }
-
-        var path = Path.Combine(AppContext.BaseDirectory, ".env");
-        if (!File.Exists(path))
-        {
-            return null;
-        }
-
-        foreach (var line in File.ReadLines(path))
-        {
-            var trimmedLine = line.Trim();
-            if (trimmedLine.Length == 0 || trimmedLine.StartsWith('#'))
-            {
-                continue;
-            }
-
-            var separatorIndex = trimmedLine.IndexOf('=');
-            if (separatorIndex <= 0 ||
-                !string.Equals(trimmedLine[..separatorIndex].Trim(), name, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            return trimmedLine[(separatorIndex + 1)..].Trim().Trim('"', '\'');
-        }
-
-        return null;
     }
 
     private static string GetErrorMessage(string responseBody)

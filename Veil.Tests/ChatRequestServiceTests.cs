@@ -9,10 +9,12 @@ public sealed class ChatRequestServiceTests
     [Fact]
     public void Service_IsDisposableAndCanBeConstructedWithInjectedDependencies()
     {
+        var settingsService = new SettingsService(new AppSettingsStore());
         using var service = new ChatRequestService(
             new StartupService(
-                new OpenAiChatService(new SettingsService(new AppSettingsStore()), new ImageDataUrlService()),
-                new ImageDataUrlService()),
+                new OpenAiChatService(settingsService, new ImageDataUrlService()),
+                new ImageDataUrlService(),
+                settingsService),
             new ImageStorageService(),
             new FrontendMessageSender(),
             new ChatRequestCancellation(),

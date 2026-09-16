@@ -34,10 +34,6 @@
     </Compile>
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Data\Migrations\" />
-  </ItemGroup>
-
   <Target Name="BuildFrontend" BeforeTargets="PrepareForBuild" Condition="'$(DesignTimeBuild)' != 'true'">
     <Exec Command="npm ci --prefix &quot;$(FrontendRoot)&quot;" WorkingDirectory="$(FrontendRoot)" Condition="!Exists('$(FrontendRoot)\node_modules')" />
     <Exec Command="npm run build --prefix &quot;$(FrontendRoot)&quot;" WorkingDirectory="$(FrontendRoot)" />

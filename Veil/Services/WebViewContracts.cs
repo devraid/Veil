@@ -6,7 +6,13 @@ public sealed record ChatsLoadedResponse(IReadOnlyList<ChatService.ChatSummary> 
 public sealed record ChatLoadedResponse(Guid ChatId, IReadOnlyList<ChatEntryResponse> Entries, string Type = "chat.loaded");
 public sealed record ChatAddedResponse(ChatEntryResponse Entry, string Type = "chat.added");
 public sealed record ChatErrorResponse(string Message, string Type = "chat.error");
-public sealed record ApiKeyStatusResponse(bool Configured, string? Model, string Type = "settings.apiKeyStatus");
+public sealed record ApiKeyStatusResponse(
+    bool Configured,
+    string? Model,
+    string? PromptInstructions,
+    int MaxRecentMessages,
+    string AnswerLength,
+    string Type = "settings.apiKeyStatus");
 public sealed record ApiKeySavedResponse(bool Success, string? Message = null, string Type = "settings.apiKeySaved");
 
 public sealed record ChatOpenCommand(Guid ChatId)
@@ -33,7 +39,12 @@ public sealed record ChatSubmitCommand(string? Text, string? Image)
     public string Type => "chat.submit";
 }
 
-public sealed record SaveApiKeyCommand(string? ApiKey, string? Model)
+public sealed record SaveApiKeyCommand(
+    string? ApiKey,
+    string? Model,
+    string? PromptInstructions,
+    int? MaxRecentMessages,
+    string? AnswerLength)
 {
     [JsonIgnore]
     public string Type => "settings.saveApiKey";
