@@ -9,21 +9,12 @@ public sealed class VeilDbContext : DbContext
     {
     }
 
-    public DbSet<AppSetting> Settings => Set<AppSetting>();
-
     public DbSet<Chat> Chats => Set<Chat>();
 
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<AppSetting>(entity =>
-        {
-            entity.HasKey(setting => setting.Key);
-            entity.Property(setting => setting.Key).HasMaxLength(128);
-            entity.Property(setting => setting.Value).IsRequired();
-        });
-
         modelBuilder.Entity<Chat>(entity =>
         {
             entity.ToTable("Chat");
@@ -47,13 +38,6 @@ public sealed class VeilDbContext : DbContext
             entity.HasIndex(message => new { message.ChatId, message.Timestamp });
         });
     }
-}
-
-public sealed class AppSetting
-{
-    public required string Key { get; set; }
-
-    public required string Value { get; set; }
 }
 
 public sealed class Chat

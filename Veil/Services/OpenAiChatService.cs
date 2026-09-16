@@ -12,13 +12,20 @@ public sealed class OpenAiChatService
 {
     private const string DefaultModel = "gpt-4o-mini";
     private static readonly HttpClient HttpClient = new();
-    private readonly AppSettingsStore _appSettingsStore = new();
+    private readonly SettingsService _settingsService;
+    private readonly ImageDataUrlService _imageDataUrlService;
+
+    public OpenAiChatService(SettingsService settingsService, ImageDataUrlService imageDataUrlService)
+    {
+        _settingsService = settingsService;
+        _imageDataUrlService = imageDataUrlService;
+    }
 
     public async Task<string> GenerateResponseAsync(
         IReadOnlyList<ChatTurn> conversation,
         CancellationToken cancellationToken = default)
     {
-        var settings = _appSettingsStore.GetStoredSettings();
+        var settings = _settingsService.GetStoredSettings();
         var apiKey = settings?.ApiKey ?? GetEnvironmentValue("OPENAI_API_KEY");
         if (string.IsNullOrWhiteSpace(apiKey))
         {
@@ -66,7 +73,7 @@ public sealed class OpenAiChatService
         return content.Trim();
     }
 
-    private static object CreateOpenAiMessage(ChatTurn turn)
+    private object CreateOpenAiMessage(ChatTurn turn)
     {
         var content = new List<object>();
         if (!string.IsNullOrWhiteSpace(turn.Content))
@@ -74,7 +81,7 @@ public sealed class OpenAiChatService
             content.Add(new { type = "text", text = turn.Content });
         }
 
-        var imageDataUrl = ReadImageAsDataUrl(turn.Image);
+        var imageDataUrl = _imageDataUrlService.ReadAsDataUrl(turn.Image);
         if (imageDataUrl is not null)
         {
             content.Add(new
@@ -89,27 +96,6 @@ public sealed class OpenAiChatService
             role = turn.Role == "ai" ? "assistant" : turn.Role,
             content
         };
-    }
-
-    private static string? ReadImageAsDataUrl(string? imagePath)
-    {
-        if (string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath))
-        {
-            return null;
-        }
-
-        var mimeType = Path.GetExtension(imagePath).ToLowerInvariant() switch
-        {
-            ".jpg" or ".jpeg" => "image/jpeg",
-            ".png" => "image/png",
-            ".gif" => "image/gif",
-            ".webp" => "image/webp",
-            _ => null
-        };
-
-        return mimeType is null
-            ? null
-            : $"data:{mimeType};base64,{Convert.ToBase64String(File.ReadAllBytes(imagePath))}";
     }
 
     private static string? GetEnvironmentValue(string name)

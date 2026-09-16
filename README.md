@@ -4,12 +4,14 @@ Veil is an ongoing project aiming to become a Windows desktop AI chat applicatio
 
 It uses:
 
-- React, TypeScript, and Vite
-- C# and .NET 10
+- .NET 10 and C#
 - WPF and WebView2
-- SQLite and Entity Framework Core
-- EF Core migrations for database versioning
+- EF Core 10 and SQLite
+- OpenAI API
+- React 19, TypeScript, and Vite
 - Tailwind CSS and Biome
+- Frontend testing: Vitest, React Testing Library, user-event, jest-dom, jsdom
+- Backend testing: xUnit, Microsoft.NET.Test.Sdk, xUnit Visual Studio adapter, and Coverlet
 
 ## Developer prerequisites
 
@@ -35,6 +37,14 @@ npm run dev
 Then open `Veil.slnx` in Visual Studio and press **F5** using the `Veil` launch profile.
 
 The React frontend runs inside the WPF WebView2 window at `http://localhost:5173`.
+
+## Run tests
+
+From the repository root, run:
+
+```powershell
+dotnet test .\Veil.Tests\Veil.Tests.csproj
+```
 
 ## Build the standalone executable
 

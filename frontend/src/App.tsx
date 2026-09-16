@@ -9,68 +9,34 @@ import {
   X,
 } from 'lucide-react';
 import type { ChangeEvent, KeyboardEvent, ReactNode, SubmitEvent } from 'react';
-import { useEffect, useRef, useState } from 'react';
-import Markdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-
-interface ChatEntry {
-  id: number;
-  userText: string | null;
-  answer: string;
-  timestamp: string;
-  image: string | null;
-}
-
-interface ChatSummary {
-  id: string;
-  title: string | null;
-  timestamp: string;
-}
-
-type ChatMessage =
-  | { type: 'chats.loaded'; chats: ChatSummary[] }
-  | { type: 'chat.loaded'; chatId: string; entries: ChatEntry[] }
-  | { type: 'chat.added'; entry: ChatEntry }
-  | { type: 'chat.error'; message: string }
-  | {
-      type: 'settings.apiKeyStatus';
-      configured: boolean;
-      model?: string | null;
-    }
-  | { type: 'settings.apiKeySaved'; success: boolean; message?: string };
-
-declare global {
-  interface Window {
-    chrome?: {
-      webview?: {
-        postMessage: (message: unknown) => void;
-      };
-    };
-    veilChat?: {
-      receive: (message: ChatMessage) => void;
-    };
-  }
-}
-
-const sendMessage = (message: unknown): void => {
-  window.chrome?.webview?.postMessage(message);
-};
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ChatMessage as ChatMessageView } from './components/ChatMessage';
+import { useChat } from './hooks/useChat';
+import { sendMessage } from './hooks/useVeilBridge';
 
 export const App = (): ReactNode => {
-  const [entries, setEntries] = useState<ChatEntry[]>([]);
-  const [chats, setChats] = useState<ChatSummary[]>([]);
-  const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [text, setText] = useState('');
   const [pendingImage, setPendingImage] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState('');
-  const [model, setModel] = useState('gpt-4o-mini');
-  const [settingsLoaded, setSettingsLoaded] = useState(false);
-  const [settingsConfigured, setSettingsConfigured] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [chatsOpen, setChatsOpen] = useState(false);
   const [editingChatId, setEditingChatId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
+
+  const clearApiKey = useCallback((): void => setApiKey(''), []);
+  const {
+    activeChatId,
+    chats,
+    entries,
+    model,
+    settingsConfigured,
+    settingsLoaded,
+    settingsMessage,
+    settingsOpen,
+    setModel,
+    setSettingsMessage,
+    setSettingsOpen,
+  } = useChat({ onApiKeySaved: clearApiKey });
 
   const saveChatTitle = (chatId: string): void => {
     const title = editingTitle.trim();
@@ -79,58 +45,8 @@ export const App = (): ReactNode => {
     }
     setEditingChatId(null);
   };
-  const [settingsMessage, setSettingsMessage] = useState('');
   const imageInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    window.veilChat = {
-      receive: (message: ChatMessage): void => {
-        if (message.type === 'settings.apiKeyStatus') {
-          setSettingsLoaded(true);
-          setSettingsConfigured(message.configured);
-          if (message.model) {
-            setModel(message.model);
-          }
-        } else if (message.type === 'settings.apiKeySaved') {
-          if (message.success) {
-            setApiKey('');
-            setSettingsConfigured(true);
-            setSettingsOpen(false);
-            setSettingsMessage('');
-          } else {
-            setSettingsMessage(
-              message.message ?? 'Could not save the settings.'
-            );
-          }
-        } else if (message.type === 'chats.loaded') {
-          setChats(message.chats);
-        } else if (message.type === 'chat.loaded') {
-          setActiveChatId(message.chatId);
-          setEntries(message.entries);
-        } else if (message.type === 'chat.added') {
-          setEntries((currentEntries) => [...currentEntries, message.entry]);
-        } else {
-          setEntries((currentEntries) => [
-            ...currentEntries,
-            {
-              id: Date.now(),
-              userText: null,
-              answer: `Error: ${message.message}`,
-              timestamp: new Date().toISOString(),
-              image: null,
-            },
-          ]);
-        }
-      },
-    };
-
-    sendMessage({ type: 'chat.ready' });
-
-    return (): void => {
-      delete window.veilChat;
-    };
-  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -271,8 +187,12 @@ export const App = (): ReactNode => {
                           className="min-h-11 min-w-0 flex-1 rounded-lg border border-[#7dd3fc] bg-[#273542] px-4 font-[inherit] font-bold text-[#e8edf2] outline-none"
                           value={editingTitle}
                           autoFocus
-                          onChange={(event): void => setEditingTitle(event.target.value)}
-                          onKeyDown={(event): void => {
+                          onChange={(
+                            event: ChangeEvent<HTMLInputElement>
+                          ): void => setEditingTitle(event.target.value)}
+                          onKeyDown={(
+                            event: KeyboardEvent<HTMLInputElement>
+                          ): void => {
                             if (event.key === 'Enter') {
                               event.preventDefault();
                               saveChatTitle(chat.id);
@@ -291,7 +211,8 @@ export const App = (): ReactNode => {
                             setChatsOpen(false);
                           }}
                         >
-                          {chat.title ?? new Date(chat.timestamp).toLocaleString()}
+                          {chat.title ??
+                            new Date(chat.timestamp).toLocaleString()}
                         </button>
                       )}
                       {editingChatId !== chat.id && (
@@ -332,7 +253,10 @@ export const App = (): ReactNode => {
                           type="button"
                           aria-label="Delete chat"
                           onClick={(): void =>
-                            sendMessage({ type: 'chat.delete', chatId: chat.id })
+                            sendMessage({
+                              type: 'chat.delete',
+                              chatId: chat.id,
+                            })
                           }
                         >
                           <Trash2 size={18} aria-hidden="true" />
@@ -456,36 +380,7 @@ export const App = (): ReactNode => {
             </p>
           ) : (
             entries.map((entry) => (
-              <article
-                className={`mb-3 w-fit max-w-[80%] rounded-xl border border-[#273542] ${entry.userText || entry.image ? 'ml-auto bg-[#19232d]' : 'mr-auto bg-[#202d38]'} px-4 py-[0.85rem]`}
-                key={entry.id}
-              >
-                {entry.userText && (
-                  <p
-                    className={`mb-2 whitespace-pre-wrap break-words ${entry.userText ? 'text-right' : 'text-left'}`}
-                  >
-                    {entry.userText}
-                  </p>
-                )}
-                {entry.answer && (
-                  <div className="mb-2 min-w-0 break-words [&_a]:text-[#7dd3fc] [&_a]:underline [&_blockquote]:border-l-4 [&_blockquote]:border-[#3a4b5a] [&_blockquote]:pl-4 [&_code]:font-mono [&_code]:text-sm [&_h1]:mb-3 [&_h1]:text-xl [&_h2]:mb-3 [&_h2]:text-lg [&_h3]:mb-2 [&_h3]:text-base [&_img]:block [&_img]:max-w-40 [&_img]:rounded-lg [&_img]:object-contain [&_li]:ml-5 [&_li]:list-disc [&_ol]:my-2 [&_ol]:list-decimal [&_p]:mb-3 [&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-[#11161c] [&_pre]:p-4 [&_ul]:my-2 [&_ul]:list-disc">
-                    <Markdown remarkPlugins={[remarkGfm]}>{entry.answer}</Markdown>
-                  </div>
-                )}
-                {entry.image && (
-                  <img
-                    className="mb-2 block max-h-80 max-w-40 rounded-lg object-contain"
-                    src={entry.image}
-                    alt="Attached"
-                  />
-                )}
-                <time
-                  className={`block w-full text-xs text-[#7d8a97] ${entry.userText || entry.image ? 'text-right' : 'text-left'}`}
-                  dateTime={entry.timestamp}
-                >
-                  {new Date(entry.timestamp).toLocaleString()}
-                </time>
-              </article>
+              <ChatMessageView key={entry.id} entry={entry} />
             ))
           )}
           <div ref={messagesEndRef} />
