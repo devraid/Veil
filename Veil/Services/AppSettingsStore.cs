@@ -41,14 +41,28 @@ public sealed class AppSettingsStore
 
     public void Save(string apiKey, string model)
     {
+        Save(new OpenAiSettings(apiKey, model, GetStoredSettings()?.LastChatId));
+    }
+
+    public void SaveLastChatId(Guid? chatId)
+    {
+        var settings = GetStoredSettings();
+        if (settings is not null)
+        {
+            Save(settings with { LastChatId = chatId });
+        }
+    }
+
+    private static void Save(OpenAiSettings settings)
+    {
         var directory = Path.GetDirectoryName(StoragePath)
             ?? throw new InvalidOperationException("Could not determine the settings storage directory.");
         Directory.CreateDirectory(directory);
 
-        var plainBytes = JsonSerializer.SerializeToUtf8Bytes(new OpenAiSettings(apiKey, model));
+        var plainBytes = JsonSerializer.SerializeToUtf8Bytes(settings);
         var protectedBytes = ProtectedData.Protect(plainBytes, null, DataProtectionScope.CurrentUser);
         File.WriteAllBytes(StoragePath, protectedBytes);
     }
 }
 
-public sealed record OpenAiSettings(string ApiKey, string Model);
+public sealed record OpenAiSettings(string ApiKey, string Model, Guid? LastChatId = null);

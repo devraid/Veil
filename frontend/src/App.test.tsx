@@ -97,6 +97,41 @@ describe('App interactions', () => {
     expect(editor).toHaveValue('');
   });
 
+  it('shows the active chat history when startup responses arrive', async () => {
+    const view = render(<App />);
+    await sendBackendMessage({
+      type: 'settings.apiKeyStatus',
+      configured: true,
+      model: 'gpt-test',
+    });
+    await sendBackendMessage({
+      type: 'chats.loaded',
+      chats: [
+        {
+          id: 'chat-1',
+          title: 'Existing chat',
+          timestamp: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    });
+    await sendBackendMessage({
+      type: 'chat.loaded',
+      chatId: 'chat-1',
+      entries: [
+        {
+          id: 1,
+          role: 'user',
+          userText: 'Previous question',
+          answer: '',
+          timestamp: '2026-01-01T00:00:00.000Z',
+          image: null,
+        },
+      ],
+    });
+
+    expect(view.getByText('Previous question')).toBeInTheDocument();
+  });
+
   it('opens chats and renames a selected chat', async () => {
     const user = userEvent.setup();
     const view = render(<App />);
@@ -144,6 +179,7 @@ describe('App interactions', () => {
     await user.click(view.getByRole('button', { name: 'Chats' }));
     await user.click(view.getByRole('button', { name: 'Start new chat' }));
 
+    expect(postMessage).toHaveBeenCalledWith({ type: 'chat.list' });
     expect(postMessage).toHaveBeenCalledWith({ type: 'chat.new' });
     expect(
       view.queryByRole('heading', { name: 'Chats' })

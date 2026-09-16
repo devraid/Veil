@@ -33,12 +33,27 @@ public sealed class WebViewMessageRouterTests
         Assert.Equal(new[] { "initialized", "ready" }, events);
     }
 
+    [Fact]
+    public async Task ChatList_WaitsForInitializationBeforeLoadingChats()
+    {
+        var events = new List<string>();
+        var router = CreateRouter(
+            waitForInitialization: () => { events.Add("initialized"); return Task.CompletedTask; },
+            chatList: () => { events.Add("list"); return Task.CompletedTask; });
+
+        await router.RouteAsync("{\"type\":\"chat.list\"}");
+
+        Assert.Equal(new[] { "initialized", "list" }, events);
+    }
+
     private static WebViewMessageRouter CreateRouter(
         Func<Task>? waitForInitialization = null,
         Func<Task>? chatReady = null,
+        Func<Task>? chatList = null,
         Func<ChatSubmitCommand, Task>? chatSubmit = null) => new(
         waitForInitialization ?? (() => Task.CompletedTask),
         chatReady ?? (() => Task.CompletedTask),
+        chatList ?? (() => Task.CompletedTask),
         _ => Task.CompletedTask,
         () => Task.CompletedTask,
         _ => Task.CompletedTask,

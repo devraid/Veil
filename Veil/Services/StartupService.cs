@@ -5,35 +5,23 @@ namespace Veil.Services;
 
 public sealed class StartupService
 {
-    private readonly TaskCompletionSource<ChatService> _completion =
-        new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly Lazy<Task<ChatService>> _initialization;
     private readonly OpenAiChatService _openAiChatService;
     private readonly ImageDataUrlService _imageDataUrlService;
-    private VeilDbContext? _dbContext;
 
     public StartupService(OpenAiChatService openAiChatService, ImageDataUrlService imageDataUrlService)
     {
         _openAiChatService = openAiChatService;
         _imageDataUrlService = imageDataUrlService;
+        _initialization = new Lazy<Task<ChatService>>(InitializeCoreAsync, LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
-    public Task<ChatService> InitializeAsync()
-    {
-        _ = InitializeCoreAsync();
-        return _completion.Task;
-    }
+    public Task<ChatService> InitializeAsync() => _initialization.Value;
 
-    private async Task InitializeCoreAsync()
+    private async Task<ChatService> InitializeCoreAsync()
     {
-        try
-        {
-            _dbContext = VeilDbContextFactory.Create();
-            await _dbContext.Database.MigrateAsync();
-            _completion.SetResult(new ChatService(_dbContext, _openAiChatService, _imageDataUrlService));
-        }
-        catch (Exception exception)
-        {
-            _completion.SetException(exception);
-        }
+        var dbContext = VeilDbContextFactory.Create();
+        await dbContext.Database.MigrateAsync();
+        return new ChatService(dbContext, _openAiChatService, _imageDataUrlService);
     }
 }

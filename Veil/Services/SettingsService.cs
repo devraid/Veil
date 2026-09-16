@@ -11,6 +11,10 @@ public sealed class SettingsService
 
     public OpenAiSettings? GetStoredSettings() => _store.GetStoredSettings();
 
+    public Guid? GetLastChatId() => _store.GetStoredSettings()?.LastChatId;
+
+    public void SaveLastChatId(Guid? chatId) => _store.SaveLastChatId(chatId);
+
     public bool IsConfigured()
     {
         var settings = _store.GetStoredSettings();

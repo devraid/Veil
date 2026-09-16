@@ -48,6 +48,11 @@ public sealed class ChatRequestService : IDisposable
         {
             _logger.LogInformation("Canceled superseded chat request.");
         }
+        catch (OperationCanceledException exception)
+        {
+            _logger.LogError(exception, "Chat response generation timed out.");
+            await _frontendMessageSender.SendAsync(webView, new ChatErrorResponse("The chat request timed out."));
+        }
         catch (HttpRequestException exception)
         {
             _logger.LogError(exception, "Chat response generation failed.");
@@ -56,6 +61,11 @@ public sealed class ChatRequestService : IDisposable
         catch (InvalidOperationException exception)
         {
             _logger.LogError(exception, "Chat request was invalid.");
+            await _frontendMessageSender.SendAsync(webView, new ChatErrorResponse("The chat request failed."));
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Unexpected chat request failure.");
             await _frontendMessageSender.SendAsync(webView, new ChatErrorResponse("The chat request failed."));
         }
     }

@@ -2,6 +2,7 @@ import {
   Check,
   ImagePlus,
   Menu,
+  MessageSquare,
   Pencil,
   Send,
   Settings,
@@ -146,9 +147,11 @@ export const App = (): ReactNode => {
                 type="button"
                 onClick={(): void => {
                   setSidebarOpen(false);
+                  sendMessage({ type: 'chat.list' });
                   setChatsOpen(true);
                 }}
               >
+                <MessageSquare size={20} aria-hidden="true" />
                 Chats
               </button>
               <button
@@ -204,7 +207,7 @@ export const App = (): ReactNode => {
                         />
                       ) : (
                         <button
-                          className={`flex min-h-11 flex-1 items-center justify-between rounded-lg border-0 px-4 text-left font-[inherit] font-bold text-[#e8edf2] ${activeChatId === chat.id ? 'bg-[#7dd3fc] text-[#081018]' : 'bg-[#273542]'}`}
+                          className={`flex min-h-11 flex-1 items-center justify-between rounded-lg border-0 px-4 text-left font-[inherit] font-bold text-[#e8edf2] ${activeChatId === chat.id ? 'bg-[#166534] text-white' : 'bg-[#273542]'}`}
                           type="button"
                           onClick={(): void => {
                             sendMessage({ type: 'chat.open', chatId: chat.id });

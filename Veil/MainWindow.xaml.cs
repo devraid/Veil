@@ -34,6 +34,7 @@ namespace Veil
             _webViewMessageRouter = new WebViewMessageRouter(
                 WaitForDatabaseAsync,
                 SendApiKeyStatusAsync,
+                SendChatsAsync,
                 OpenChatAsync,
                 StartNewChatAsync,
                 DeleteChatAsync,
@@ -86,7 +87,12 @@ namespace Veil
         private async Task SendApiKeyStatusAsync()
         {
             var storedSettings = _settingsService.GetStoredSettings();
-            await SendToFrontendAsync(new ApiKeyStatusResponse(_settingsService.IsConfigured(), storedSettings?.Model));
+            var configured = _settingsService.IsConfigured();
+            await SendToFrontendAsync(new ApiKeyStatusResponse(configured, storedSettings?.Model));
+            if (configured)
+            {
+                await SendChatsAsync();
+            }
         }
 
         private async Task SaveApiKeyAsync(SaveApiKeyCommand message)
@@ -109,9 +115,13 @@ namespace Veil
             var chats = await _chatService.GetChatsAsync();
             await SendToFrontendAsync(new ChatsLoadedResponse(chats));
 
-            if (_chatService.ActiveChatId == Guid.Empty && chats.Count > 0)
+            var lastChatId = _settingsService.GetLastChatId();
+            var chatToOpen = lastChatId.HasValue && chats.Any(chat => chat.Id == lastChatId.Value)
+                ? lastChatId.Value
+                : chats.FirstOrDefault()?.Id ?? Guid.Empty;
+            if (_chatService.ActiveChatId == Guid.Empty && chatToOpen != Guid.Empty)
             {
-                await OpenChatAsync(chats[0].Id);
+                await OpenChatAsync(chatToOpen);
             }
         }
 
@@ -130,6 +140,7 @@ namespace Veil
             var entries = await _chatService.OpenAsync(chatId);
             if (entries is not null)
             {
+                _settingsService.SaveLastChatId(chatId);
                 await SendToFrontendAsync(new ChatLoadedResponse(chatId, entries));
             }
         }
@@ -142,6 +153,7 @@ namespace Veil
             }
 
             var chatId = await _chatService.StartNewAsync();
+            _settingsService.SaveLastChatId(chatId);
             await SendChatsAsync();
             await SendToFrontendAsync(new ChatLoadedResponse(chatId, Array.Empty<ChatEntryResponse>()));
         }
@@ -155,6 +167,10 @@ namespace Veil
 
             if (await _chatService.DeleteAsync(message.ChatId))
             {
+                if (_settingsService.GetLastChatId() == message.ChatId)
+                {
+                    _settingsService.SaveLastChatId(null);
+                }
                 await SendChatsAsync();
             }
         }

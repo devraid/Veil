@@ -7,6 +7,7 @@ public sealed class WebViewMessageRouter
 {
     private readonly Func<Task> _waitForInitialization;
     private readonly Func<Task> _chatReady;
+    private readonly Func<Task> _chatList;
     private readonly Func<ChatOpenCommand, Task> _chatOpen;
     private readonly Func<Task> _chatNew;
     private readonly Func<ChatDeleteCommand, Task> _chatDelete;
@@ -17,6 +18,7 @@ public sealed class WebViewMessageRouter
     public WebViewMessageRouter(
         Func<Task> waitForInitialization,
         Func<Task> chatReady,
+        Func<Task> chatList,
         Func<ChatOpenCommand, Task> chatOpen,
         Func<Task> chatNew,
         Func<ChatDeleteCommand, Task> chatDelete,
@@ -26,6 +28,7 @@ public sealed class WebViewMessageRouter
     {
         _waitForInitialization = waitForInitialization;
         _chatReady = chatReady;
+        _chatList = chatList;
         _chatOpen = chatOpen;
         _chatNew = chatNew;
         _chatDelete = chatDelete;
@@ -48,6 +51,10 @@ public sealed class WebViewMessageRouter
             case "chat.ready":
                 await _waitForInitialization();
                 await _chatReady();
+                break;
+            case "chat.list":
+                await _waitForInitialization();
+                await _chatList();
                 break;
             case "chat.open":
                 await _waitForInitialization();
